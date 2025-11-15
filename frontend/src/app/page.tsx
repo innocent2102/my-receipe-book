@@ -1,12 +1,14 @@
 'use client';
 
-import { Container, Typography, Box, AppBar, Toolbar } from '@mui/material';
+import { Container, Typography, Box, AppBar, Toolbar, Button } from '@mui/material';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { UserMenu } from '../components/UserMenu';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const { data: session } = useSession();
+  const router = useRouter();
 
   return (
     <>
@@ -34,7 +36,24 @@ export default function Home() {
           <Typography variant="h6" color="text.secondary" align="center">
             Create and save your own recipes, access your favorites instantly, and generate grocery lists in seconds.
           </Typography>
-          {!session && (
+          {session ? (
+            <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+              <Button
+                variant="contained"
+                size="large"
+                onClick={() => router.push('/recipes/add')}
+              >
+                Add Recipe
+              </Button>
+              <Button
+                variant="outlined"
+                size="large"
+                onClick={() => router.push('/recipes')}
+              >
+                View Recipes
+              </Button>
+            </Box>
+          ) : (
             <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
               Please sign in to get started
             </Typography>
