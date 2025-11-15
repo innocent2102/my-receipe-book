@@ -2,8 +2,12 @@
 
 import { Container, Typography, Box, AppBar, Toolbar } from '@mui/material';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { UserMenu } from '../components/UserMenu';
+import { useSession } from 'next-auth/react';
 
 export default function Home() {
+  const { data: session } = useSession();
+
   return (
     <>
       <AppBar position="static">
@@ -12,6 +16,7 @@ export default function Home() {
             My Recipe Book
           </Typography>
           <ThemeToggle />
+          <UserMenu />
         </Toolbar>
       </AppBar>
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -24,11 +29,16 @@ export default function Home() {
           }}
         >
           <Typography variant="h3" component="h1" gutterBottom>
-            Welcome to Your Recipe Book
+            {session?.user ? `Welcome back, ${session.user.name?.split(' ')[0]}!` : 'Welcome to Your Recipe Book'}
           </Typography>
           <Typography variant="h6" color="text.secondary" align="center">
             Create and save your own recipes, access your favorites instantly, and generate grocery lists in seconds.
           </Typography>
+          {!session && (
+            <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
+              Please sign in to get started
+            </Typography>
+          )}
         </Box>
       </Container>
     </>
