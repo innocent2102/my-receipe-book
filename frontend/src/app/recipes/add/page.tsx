@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   Container,
   Paper,
@@ -16,6 +17,7 @@ import {
   Alert,
   AppBar,
   Toolbar,
+  CircularProgress,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -23,7 +25,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { ThemeToggle } from '../../../components/ThemeToggle';
 import { UserMenu } from '../../../components/UserMenu';
 import { Ingredient, generateId } from '@my-receipe-book/shared';
-import { getApiBaseUrl } from '../../../lib/api';
 
 interface InstructionItem {
   id: string;
@@ -32,6 +33,7 @@ interface InstructionItem {
 
 export default function AddRecipePage() {
   const router = useRouter();
+  const { status } = useSession();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [prepTime, setPrepTime] = useState<number | ''>('');
@@ -43,6 +45,12 @@ export default function AddRecipePage() {
   const [tagInput, setTagInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.replace('/login?callbackUrl=/recipes/add');
+    }
+  }, [status, router]);
 
   const addIngredient = () => {
     setIngredients([
@@ -129,7 +137,7 @@ export default function AddRecipePage() {
         tags: tags.length > 0 ? tags : undefined,
       };
 
-      const res = await fetch(`${getApiBaseUrl()}/api/recipes`, {
+      const res = await fetch('/api/recipes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recipeData),
@@ -140,18 +148,35 @@ export default function AddRecipePage() {
         error?: string;
       };
 
+      if (res.status === 401) {
+        router.replace('/login?callbackUrl=/recipes/add');
+        return;
+      }
+
       if (!res.ok || !json.success) {
         throw new Error(json.error || `Failed to save recipe (${res.status})`);
       }
 
       router.push('/recipes');
     } catch (err) {
-      setError('Failed to save recipe. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to save recipe. Please try again.');
       console.error('Error saving recipe:', err);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (status === 'loading') {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', pt: 10 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (status === 'unauthenticated') {
+    return null;
+  }
 
   return (
     <>

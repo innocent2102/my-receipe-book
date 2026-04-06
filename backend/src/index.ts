@@ -29,6 +29,10 @@ async function bootstrap() {
     if (!dbInitialized) {
       console.log('⚠️  Running without database - API endpoints will have limited functionality');
     }
+    if (process.env.NODE_ENV === 'production' && !process.env.RECIPES_PROXY_SECRET?.trim()) {
+      console.warn(
+      '⚠️  RECIPES_PROXY_SECRET is not set — recipe APIs can be impersonated. Set it in production.');
+    }
   });
 }
 

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Database } from 'better-sqlite3';
 import { getDatabase, isDbAvailable } from '../database.js';
+import { requireRecipeUser } from '../recipeAuth.js';
 import { generateId } from '@my-receipe-book/shared';
 
 const router = Router();
@@ -13,6 +14,7 @@ type RecipeRow = {
   cook_time: number | null;
   servings: number | null;
   tags: string | null;
+  user_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -42,15 +44,18 @@ function parseTags(tags: string | null): string[] | undefined {
   }
 }
 
-router.get('/', (_req, res) => {
+router.get('/', (req, res) => {
   if (!isDbAvailable()) {
     return res.status(503).json({ success: false, error: 'Database unavailable' });
   }
 
+  const userId = requireRecipeUser(req, res);
+  if (!userId) return;
+
   const db = getDatabase() as Database;
   const recipes = db
-    .prepare('SELECT * FROM recipes ORDER BY updated_at DESC')
-    .all() as RecipeRow[];
+    .prepare('SELECT * FROM recipes WHERE user_id = ? ORDER BY updated_at DESC')
+    .all(userId) as RecipeRow[];
 
   if (recipes.length === 0) {
     return res.json({ success: true, data: [] });
@@ -114,6 +119,9 @@ router.post('/', (req, res) => {
     return res.status(503).json({ success: false, error: 'Database unavailable' });
   }
 
+  const userId = requireRecipeUser(req, res);
+  if (!userId) return;
+
   const body = req.body as {
     title?: string;
     description?: string;
@@ -141,8 +149,8 @@ router.post('/', (req, res) => {
   const instructions = Array.isArray(body.instructions) ? body.instructions : [];
 
   const insertRecipe = db.prepare(`
-    INSERT INTO recipes (id, title, description, prep_time, cook_time, servings, tags, created_at, updated_at)
-    VALUES (@id, @title, @description, @prep_time, @cook_time, @servings, @tags, @created_at, @updated_at)
+    INSERT INTO recipes (id, title, description, prep_time, cook_time, servings, tags, user_id, created_at, updated_at)
+    VALUES (@id, @title, @description, @prep_time, @cook_time, @servings, @tags, @user_id, @created_at, @updated_at)
   `);
 
   const insertIngredient = db.prepare(`
@@ -164,6 +172,7 @@ router.post('/', (req, res) => {
       cook_time: typeof body.cookTime === 'number' && !Number.isNaN(body.cookTime) ? body.cookTime : null,
       servings: typeof body.servings === 'number' && !Number.isNaN(body.servings) ? body.servings : null,
       tags: tagsJson,
+      user_id: userId,
       created_at: now,
       updated_at: now,
     });

@@ -9,6 +9,8 @@ export interface Recipe {
   cookTime?: number; // in minutes
   servings?: number;
   tags?: string[];
+  /** OAuth subject / app user id of the owner */
+  userId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

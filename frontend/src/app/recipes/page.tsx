@@ -21,7 +21,7 @@ import { ThemeToggle } from '../../components/ThemeToggle';
 import { UserMenu } from '../../components/UserMenu';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
-import { getApiBaseUrl } from '../../lib/api';
+import { useSession } from 'next-auth/react';
 
 type RecipeListItem = {
   id: string;
@@ -35,20 +35,31 @@ type RecipeListItem = {
 
 export default function RecipesPage() {
   const router = useRouter();
+  const { status } = useSession();
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.replace('/login?callbackUrl=/recipes');
+    }
+  }, [status, router]);
 
   const loadRecipes = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/recipes`);
+      const res = await fetch('/api/recipes');
       const json = (await res.json()) as {
         success?: boolean;
         data?: RecipeListItem[];
         error?: string;
       };
+      if (res.status === 401) {
+        router.replace('/login?callbackUrl=/recipes');
+        return;
+      }
       if (!res.ok || !json.success || !Array.isArray(json.data)) {
         throw new Error(json.error || 'Could not load recipes');
       }
@@ -59,11 +70,19 @@ export default function RecipesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
-    loadRecipes();
-  }, [loadRecipes]);
+    if (status === 'authenticated') {
+      loadRecipes();
+    } else if (status === 'unauthenticated') {
+      setLoading(false);
+    }
+  }, [status, loadRecipes]);
+
+  if (status === 'unauthenticated') {
+    return null;
+  }
 
   return (
     <>
@@ -94,13 +113,14 @@ export default function RecipesPage() {
 
         {error && (
           <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-            {error}. Run the backend (<code>npm run dev</code> from the repo root, or{' '}
-            <code>npm run dev:backend</code>). Default API is <code>http://localhost:3001</code>;
-            set <code>NEXT_PUBLIC_API_URL</code> in <code>frontend/.env.local</code> if yours differs.
+            {error}. Ensure the backend is running and{' '}
+            <code>BACKEND_URL</code> in <code>frontend/.env.local</code> matches it (default{' '}
+            <code>http://localhost:3001</code>). If you set <code>RECIPES_PROXY_SECRET</code> on the
+            backend, use the same value in <code>frontend/.env.local</code>.
           </Alert>
         )}
 
-        {loading ? (
+        {status === 'loading' || loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
             <CircularProgress />
           </Box>
