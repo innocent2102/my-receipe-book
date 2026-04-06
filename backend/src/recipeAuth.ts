@@ -23,3 +23,4 @@ export function requireRecipeUser(req: Request, res: Response): string | null {
 
   return userId;
 }
+
