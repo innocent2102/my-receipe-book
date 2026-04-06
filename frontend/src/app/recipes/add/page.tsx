@@ -23,6 +23,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { ThemeToggle } from '../../../components/ThemeToggle';
 import { UserMenu } from '../../../components/UserMenu';
 import { Ingredient, generateId } from '@my-receipe-book/shared';
+import { getApiBaseUrl } from '../../../lib/api';
 
 interface InstructionItem {
   id: string;
@@ -103,31 +104,6 @@ export default function AddRecipePage() {
       setError('Recipe title is required');
       return false;
     }
-
-    if (ingredients.length === 0) {
-      setError('At least one ingredient is required');
-      return false;
-    }
-
-    const incompleteIngredients = ingredients.some(
-      (ing) => !ing.name.trim() || ing.amount <= 0 || !ing.unit.trim()
-    );
-    if (incompleteIngredients) {
-      setError('Please complete all ingredient fields');
-      return false;
-    }
-
-    if (instructions.length === 0) {
-      setError('At least one instruction is required');
-      return false;
-    }
-
-    const incompleteInstructions = instructions.some((inst) => !inst.text.trim());
-    if (incompleteInstructions) {
-      setError('Please complete all instruction fields');
-      return false;
-    }
-
     return true;
   };
 
@@ -153,13 +129,21 @@ export default function AddRecipePage() {
         tags: tags.length > 0 ? tags : undefined,
       };
 
-      // TODO: Replace with actual API call
-      console.log('Recipe data:', recipeData);
+      const res = await fetch(`${getApiBaseUrl()}/api/recipes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(recipeData),
+      });
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: string;
+      };
 
-      // Redirect to recipes list or show success message
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || `Failed to save recipe (${res.status})`);
+      }
+
       router.push('/recipes');
     } catch (err) {
       setError('Failed to save recipe. Please try again.');
@@ -233,7 +217,6 @@ export default function AddRecipePage() {
                   label="Prep Time (minutes)"
                   value={prepTime}
                   onChange={(e) => setPrepTime(e.target.value ? Number(e.target.value) : '')}
-                  inputProps={{ min: 0 }}
                 />
               </Grid>
 
@@ -244,7 +227,6 @@ export default function AddRecipePage() {
                   label="Cook Time (minutes)"
                   value={cookTime}
                   onChange={(e) => setCookTime(e.target.value ? Number(e.target.value) : '')}
-                  inputProps={{ min: 0 }}
                 />
               </Grid>
 
@@ -255,14 +237,13 @@ export default function AddRecipePage() {
                   label="Servings"
                   value={servings}
                   onChange={(e) => setServings(e.target.value ? Number(e.target.value) : '')}
-                  inputProps={{ min: 1 }}
                 />
               </Grid>
 
               {/* Ingredients */}
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">Ingredients *</Typography>
+                  <Typography variant="h6">Ingredients</Typography>
                   <Button
                     startIcon={<AddIcon />}
                     onClick={addIngredient}
@@ -272,12 +253,6 @@ export default function AddRecipePage() {
                     Add Ingredient
                   </Button>
                 </Box>
-
-                {ingredients.length === 0 && (
-                  <Alert severity="info" sx={{ mb: 2 }}>
-                    Add at least one ingredient to get started
-                  </Alert>
-                )}
 
                 <Stack spacing={2}>
                   {ingredients.map((ingredient, index) => (
@@ -301,8 +276,7 @@ export default function AddRecipePage() {
                           updateIngredient(ingredient.id, 'amount', Number(e.target.value) || 0)
                         }
                         sx={{ width: 100 }}
-                        inputProps={{ min: 0, step: 0.1 }}
-                        required
+                        inputProps={{ step: 0.1 }}
                       />
                       <TextField
                         label="Unit"
@@ -310,14 +284,12 @@ export default function AddRecipePage() {
                         onChange={(e) => updateIngredient(ingredient.id, 'unit', e.target.value)}
                         sx={{ flex: 1 }}
                         placeholder="e.g., cups, tbsp, g"
-                        required
                       />
                       <TextField
                         label="Ingredient Name"
                         value={ingredient.name}
                         onChange={(e) => updateIngredient(ingredient.id, 'name', e.target.value)}
                         sx={{ flex: 2 }}
-                        required
                       />
                       <IconButton
                         color="error"
@@ -334,7 +306,7 @@ export default function AddRecipePage() {
               {/* Instructions */}
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">Instructions *</Typography>
+                  <Typography variant="h6">Instructions</Typography>
                   <Button
                     startIcon={<AddIcon />}
                     onClick={addInstruction}
@@ -344,12 +316,6 @@ export default function AddRecipePage() {
                     Add Step
                   </Button>
                 </Box>
-
-                {instructions.length === 0 && (
-                  <Alert severity="info" sx={{ mb: 2 }}>
-                    Add at least one instruction step
-                  </Alert>
-                )}
 
                 <Stack spacing={2}>
                   {instructions.map((instruction, index) => (
@@ -384,7 +350,6 @@ export default function AddRecipePage() {
                         value={instruction.text}
                         onChange={(e) => updateInstruction(instruction.id, e.target.value)}
                         placeholder={`Step ${index + 1}...`}
-                        required
                       />
                       <IconButton
                         color="error"
