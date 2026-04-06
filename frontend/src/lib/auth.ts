@@ -20,7 +20,11 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.sub as string;
+        // Prefer OAuth `sub`; fall back to `id` if some providers omit sub on refresh.
+        const sub = token.sub ?? (token.id as string | undefined);
+        if (sub) {
+          session.user.id = sub;
+        }
       }
       return session;
     },

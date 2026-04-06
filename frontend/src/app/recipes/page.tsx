@@ -15,8 +15,15 @@ import {
   Alert,
   Chip,
   Stack,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { UserMenu } from '../../components/UserMenu';
 import { useRouter } from 'next/navigation';
@@ -39,6 +46,9 @@ export default function RecipesPage() {
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<RecipeListItem | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteDialogError, setDeleteDialogError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -80,6 +90,38 @@ export default function RecipesPage() {
     }
   }, [status, loadRecipes]);
 
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeletingId(deleteTarget.id);
+    setDeleteDialogError(null);
+    try {
+      const res = await fetch(
+        `/api/recipes?id=${encodeURIComponent(deleteTarget.id)}`,
+        { method: 'DELETE' }
+      );
+      const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
+      if (res.status === 401) {
+        router.replace('/login?callbackUrl=/recipes');
+        return;
+      }
+      if (!res.ok || !json.success) {
+        setDeleteDialogError(
+          json.error ||
+            (res.status === 404
+              ? 'Recipe not found or you no longer have access.'
+              : 'Could not delete this recipe.')
+        );
+        return;
+      }
+      setRecipes((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch {
+      setDeleteDialogError('Network error while deleting. Check that the app and API are running.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (status === 'unauthenticated') {
     return null;
   }
@@ -113,10 +155,13 @@ export default function RecipesPage() {
 
         {error && (
           <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-            {error}. Ensure the backend is running and{' '}
-            <code>BACKEND_URL</code> in <code>frontend/.env.local</code> matches it (default{' '}
-            <code>http://localhost:3001</code>). If you set <code>RECIPES_PROXY_SECRET</code> on the
-            backend, use the same value in <code>frontend/.env.local</code>.
+            {error}
+            <Typography component="span" variant="body2" display="block" sx={{ mt: 1 }}>
+              Ensure the backend is running and <code>BACKEND_URL</code> in{' '}
+              <code>frontend/.env.local</code> matches it (default <code>http://localhost:3001</code>
+              ). If you set <code>RECIPES_PROXY_SECRET</code> on the backend, use the same value in{' '}
+              <code>frontend/.env.local</code>.
+            </Typography>
           </Alert>
         )}
 
@@ -146,7 +191,24 @@ export default function RecipesPage() {
               {recipes.map((recipe, index) => (
                 <Box key={recipe.id}>
                   {index > 0 ? <Box sx={{ borderTop: 1, borderColor: 'divider' }} /> : null}
-                  <ListItem alignItems="flex-start" sx={{ py: 2, px: 3 }}>
+                  <ListItem
+                    alignItems="flex-start"
+                    sx={{ py: 2, px: 3 }}
+                    secondaryAction={
+                      <IconButton
+                        edge="end"
+                        aria-label={`Delete ${recipe.title}`}
+                        onClick={() => {
+                          setDeleteDialogError(null);
+                          setDeleteTarget(recipe);
+                        }}
+                        disabled={deletingId !== null}
+                        color="error"
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    }
+                  >
                     <ListItemText
                       primary={recipe.title}
                       primaryTypographyProps={{ variant: 'h6', component: 'div' }}
@@ -182,6 +244,47 @@ export default function RecipesPage() {
           </Paper>
         )}
       </Container>
+
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onClose={() => {
+          if (!deletingId) {
+            setDeleteTarget(null);
+            setDeleteDialogError(null);
+          }
+        }}
+      >
+        <DialogTitle>Delete recipe?</DialogTitle>
+        <DialogContent>
+          {deleteDialogError ? (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDeleteDialogError(null)}>
+              {deleteDialogError}
+            </Alert>
+          ) : null}
+          <DialogContentText>
+            This will permanently remove &quot;{deleteTarget?.title}&quot; and cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setDeleteTarget(null);
+              setDeleteDialogError(null);
+            }}
+            disabled={deletingId !== null}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            variant="contained"
+            disabled={deletingId !== null}
+          >
+            {deletingId ? 'Deleting…' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

@@ -2,9 +2,12 @@ import { Router } from 'express';
 import type { Database } from 'better-sqlite3';
 import { getDatabase, isDbAvailable } from '../database.js';
 import { requireRecipeUser } from '../recipeAuth.js';
-import { generateId } from '@my-receipe-book/shared';
 
 const router = Router();
+
+function generateRecipeId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
 
 type RecipeRow = {
   id: string;
@@ -53,8 +56,13 @@ router.get('/', (req, res) => {
   if (!userId) return;
 
   const db = getDatabase() as Database;
+  // Include legacy rows (NULL / empty user_id) so older DBs still list + delete correctly.
   const recipes = db
-    .prepare('SELECT * FROM recipes WHERE user_id = ? ORDER BY updated_at DESC')
+    .prepare(
+      `SELECT * FROM recipes
+       WHERE user_id = ? OR user_id IS NULL OR user_id = ''
+       ORDER BY updated_at DESC`
+    )
     .all(userId) as RecipeRow[];
 
   if (recipes.length === 0) {
@@ -139,7 +147,7 @@ router.post('/', (req, res) => {
   }
 
   const db = getDatabase() as Database;
-  const recipeId = generateId();
+  const recipeId = generateRecipeId();
   const now = new Date().toISOString();
   const description = typeof body.description === 'string' ? body.description.trim() : undefined;
   const tagsJson =
@@ -179,7 +187,7 @@ router.post('/', (req, res) => {
 
     for (const ing of ingredients) {
       insertIngredient.run({
-        id: generateId(),
+        id: generateRecipeId(),
         recipe_id: recipeId,
         name: typeof ing.name === 'string' ? ing.name : '',
         amount: typeof ing.amount === 'number' && !Number.isNaN(ing.amount) ? ing.amount : 0,
@@ -189,7 +197,7 @@ router.post('/', (req, res) => {
 
     instructions.forEach((text, index) => {
       insertInstruction.run({
-        id: generateId(),
+        id: generateRecipeId(),
         recipe_id: recipeId,
         step_number: index + 1,
         instruction: typeof text === 'string' ? text : '',
@@ -233,6 +241,35 @@ router.post('/', (req, res) => {
       updatedAt: row.updated_at,
     },
   });
+});
+
+router.delete('/:id', (req, res) => {
+  if (!isDbAvailable()) {
+    return res.status(503).json({ success: false, error: 'Database unavailable' });
+  }
+
+  const userId = requireRecipeUser(req, res);
+  if (!userId) return;
+
+  const id = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+  if (!id) {
+    return res.status(400).json({ success: false, error: 'Invalid recipe id' });
+  }
+
+  const db = getDatabase() as Database;
+  const result = db
+    .prepare(
+      `DELETE FROM recipes
+       WHERE id = ?
+         AND (user_id = ? OR user_id IS NULL OR user_id = '')`
+    )
+    .run(id, userId);
+
+  if (result.changes === 0) {
+    return res.status(404).json({ success: false, error: 'Recipe not found' });
+  }
+
+  return res.json({ success: true });
 });
 
 export default router;
