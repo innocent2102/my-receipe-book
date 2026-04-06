@@ -9,9 +9,10 @@ import {
   Alert 
 } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
-import { signIn, getSession } from 'next-auth/react';
+import { signIn, getSession, getProviders } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import type { ClientSafeProvider } from 'next-auth/react';
 import { AppBar, Toolbar } from '@mui/material';
 import { ThemeToggle } from '../../components/ThemeToggle';
 
@@ -19,6 +20,14 @@ export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [providers, setProviders] = useState<Record<
+    string,
+    ClientSafeProvider
+  > | null>(null);
+
+  useEffect(() => {
+    getProviders().then(setProviders);
+  }, []);
 
   useEffect(() => {
     // Check if user is already logged in
@@ -40,7 +49,11 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setError('Failed to sign in. Please try again.');
+        setError(
+          result.error === 'OAuthSignin' || result.error === 'Configuration'
+            ? 'Sign-in is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in frontend/.env.local (see frontend/GOOGLE_OAUTH_SETUP.md).'
+            : 'Failed to sign in. Please try again.'
+        );
         setIsLoading(false);
       } else if (result?.ok) {
         router.push('/');
@@ -94,12 +107,22 @@ export default function LoginPage() {
               </Alert>
             )}
 
+            {providers && !providers.google && (
+              <Alert severity="info" sx={{ width: '100%', mb: 2 }}>
+                Google sign-in is not configured. Add{' '}
+                <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>,{' '}
+                <code>NEXTAUTH_URL</code>, and <code>NEXTAUTH_SECRET</code> to{' '}
+                <code>.env.local</code> in the frontend folder. See{' '}
+                <code>frontend/GOOGLE_OAUTH_SETUP.md</code>.
+              </Alert>
+            )}
+
             <Button
               variant="contained"
               fullWidth
               startIcon={<GoogleIcon />}
               onClick={handleGoogleSignIn}
-              disabled={isLoading}
+              disabled={isLoading || !providers?.google}
               sx={{
                 mt: 2,
                 mb: 2,
