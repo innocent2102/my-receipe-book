@@ -10,6 +10,7 @@ import {
   Paper,
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
   CircularProgress,
   Alert,
@@ -193,7 +194,7 @@ export default function RecipesPage() {
                   {index > 0 ? <Box sx={{ borderTop: 1, borderColor: 'divider' }} /> : null}
                   <ListItem
                     alignItems="flex-start"
-                    sx={{ py: 2, px: 3 }}
+                    disablePadding
                     secondaryAction={
                       <IconButton
                         edge="end"
@@ -209,34 +210,46 @@ export default function RecipesPage() {
                       </IconButton>
                     }
                   >
-                    <ListItemText
-                      primary={recipe.title}
-                      primaryTypographyProps={{ variant: 'h6', component: 'div' }}
-                      secondary={
-                        <>
-                          {recipe.description ? (
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                              {recipe.description}
-                            </Typography>
-                          ) : null}
-                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
-                            {recipe.prepTime != null ? (
-                              <Chip size="small" label={`Prep: ${recipe.prepTime} min`} />
+                    <ListItemButton
+                      alignItems="flex-start"
+                      onClick={() => router.push(`/recipes/${encodeURIComponent(recipe.id)}`)}
+                      sx={{ py: 2, px: 3, pr: 9 }}
+                    >
+                      <ListItemText
+                        primary={recipe.title}
+                        primaryTypographyProps={{ variant: 'h6', component: 'div' }}
+                        secondary={
+                          <>
+                            {recipe.description ? (
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                {recipe.description}
+                              </Typography>
                             ) : null}
-                            {recipe.cookTime != null ? (
-                              <Chip size="small" label={`Cook: ${recipe.cookTime} min`} />
-                            ) : null}
-                            {recipe.servings != null ? (
-                              <Chip size="small" label={`Servings: ${recipe.servings}`} />
-                            ) : null}
-                            {recipe.tags?.map((tag) => (
-                              <Chip key={tag} size="small" variant="outlined" label={tag} />
-                            ))}
-                          </Stack>
-                        </>
-                      }
-                      secondaryTypographyProps={{ component: 'div' }}
-                    />
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              flexWrap="wrap"
+                              useFlexGap
+                              sx={{ mt: 1 }}
+                            >
+                              {recipe.prepTime != null ? (
+                                <Chip size="small" label={`Prep: ${recipe.prepTime} min`} />
+                              ) : null}
+                              {recipe.cookTime != null ? (
+                                <Chip size="small" label={`Cook: ${recipe.cookTime} min`} />
+                              ) : null}
+                              {recipe.servings != null ? (
+                                <Chip size="small" label={`Servings: ${recipe.servings}`} />
+                              ) : null}
+                              {recipe.tags?.map((tag) => (
+                                <Chip key={tag} size="small" variant="outlined" label={tag} />
+                              ))}
+                            </Stack>
+                          </>
+                        }
+                        secondaryTypographyProps={{ component: 'div' }}
+                      />
+                    </ListItemButton>
                   </ListItem>
                 </Box>
               ))}

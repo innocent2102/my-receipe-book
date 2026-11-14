@@ -122,6 +122,63 @@ router.get('/', (req, res) => {
   return res.json({ success: true, data });
 });
 
+router.get('/:id', (req, res) => {
+  if (!isDbAvailable()) {
+    return res.status(503).json({ success: false, error: 'Database unavailable' });
+  }
+
+  const userId = requireRecipeUser(req, res);
+  if (!userId) return;
+
+  const id = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+  if (!id) {
+    return res.status(400).json({ success: false, error: 'Invalid recipe id' });
+  }
+
+  const db = getDatabase() as Database;
+  // Include legacy rows (NULL / empty user_id) so older DBs stay readable.
+  const row = db
+    .prepare(
+      `SELECT * FROM recipes
+       WHERE id = ?
+         AND (user_id = ? OR user_id IS NULL OR user_id = '')`
+    )
+    .get(id, userId) as RecipeRow | undefined;
+
+  if (!row) {
+    return res.status(404).json({ success: false, error: 'Recipe not found' });
+  }
+
+  const ingRows = db
+    .prepare('SELECT * FROM ingredients WHERE recipe_id = ?')
+    .all(row.id) as IngredientRow[];
+  const instRows = db
+    .prepare('SELECT * FROM instructions WHERE recipe_id = ? ORDER BY step_number')
+    .all(row.id) as InstructionRow[];
+
+  return res.json({
+    success: true,
+    data: {
+      id: row.id,
+      title: row.title,
+      description: row.description ?? undefined,
+      ingredients: ingRows.map((ing) => ({
+        id: ing.id,
+        name: ing.name,
+        amount: ing.amount,
+        unit: ing.unit,
+      })),
+      instructions: instRows.map((i) => i.instruction),
+      prepTime: row.prep_time ?? undefined,
+      cookTime: row.cook_time ?? undefined,
+      servings: row.servings ?? undefined,
+      tags: parseTags(row.tags),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    },
+  });
+});
+
 router.post('/', (req, res) => {
   if (!isDbAvailable()) {
     return res.status(503).json({ success: false, error: 'Database unavailable' });

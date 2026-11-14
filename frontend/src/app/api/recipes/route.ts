@@ -3,14 +3,20 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { recipesBackendBaseUrl, recipesProxyHeaders } from '@/lib/recipesBackend';
 
-export async function GET() {
+/** GET lists recipes, or fetches one when query `id` is present. */
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
   if (!userId) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  const res = await fetch(`${recipesBackendBaseUrl()}/api/recipes`, {
+  const id = req.nextUrl.searchParams.get('id')?.trim();
+  const target = id
+    ? `${recipesBackendBaseUrl()}/api/recipes/${encodeURIComponent(id)}`
+    : `${recipesBackendBaseUrl()}/api/recipes`;
+
+  const res = await fetch(target, {
     headers: recipesProxyHeaders(userId),
     cache: 'no-store',
   });
