@@ -27,14 +27,6 @@ const en = {
   'theme.toLight': 'Switch to light mode',
   'theme.toDark': 'Switch to dark mode',
 
-  'home.welcomeBack': 'Welcome back, {name}!',
-  'home.welcome': 'Welcome to Your Recipe Book',
-  'home.tagline':
-    'Create and save your own recipes, access your favorites instantly, and generate grocery lists in seconds.',
-  'home.addRecipe': 'Add Recipe',
-  'home.viewRecipes': 'View Recipes',
-  'home.signInPrompt': 'Please sign in to get started',
-
   'login.title': 'Welcome Back',
   'login.subtitle': 'Sign in to access your recipes and grocery lists',
   'login.signInWithGoogle': 'Sign in with Google',
@@ -152,14 +144,6 @@ const pl: Record<TranslationKey, string> = {
 
   'theme.toLight': 'Przełącz na tryb jasny',
   'theme.toDark': 'Przełącz na tryb ciemny',
-
-  'home.welcomeBack': 'Witaj ponownie, {name}!',
-  'home.welcome': 'Witaj w swojej książce kucharskiej',
-  'home.tagline':
-    'Twórz i zapisuj własne przepisy, błyskawicznie sięgaj po ulubione i w kilka sekund twórz listy zakupów.',
-  'home.addRecipe': 'Dodaj przepis',
-  'home.viewRecipes': 'Zobacz przepisy',
-  'home.signInPrompt': 'Zaloguj się, aby rozpocząć',
 
   'login.title': 'Witaj ponownie',
   'login.subtitle': 'Zaloguj się, aby uzyskać dostęp do swoich przepisów i list zakupów',
