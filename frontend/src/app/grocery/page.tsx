@@ -24,6 +24,9 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { LanguageToggle } from '../../components/LanguageToggle';
 import { UserMenu } from '../../components/UserMenu';
@@ -145,21 +148,23 @@ export default function GroceryPage() {
     };
   }, [status, online]);
 
-  /** Single write path: update the local copy, queue the change, then sync. */
+  /** Single write path: update the local copy, queue the changes, then sync. */
   const enqueue = useCallback(
-    (op: PendingOp) => {
+    (...ops: PendingOp[]) => {
+      if (ops.length === 0) return;
+
       setItems((prev) => {
-        const next = applyOp(prev, op);
+        const next = ops.reduce(applyOp, prev);
         writeCachedItems(next);
         return next;
       });
       setQueue((prev) => {
-        const next = [...prev, op];
+        const next = [...prev, ...ops];
         writeQueue(next);
         return next;
       });
       if (online) {
-        // Let state settle first so sync reads the queue including this op.
+        // Let state settle first so sync reads the queue including these ops.
         setTimeout(() => void sync(), 0);
       }
     },
@@ -172,6 +177,14 @@ export default function GroceryPage() {
   const handleRemove = (item: GroceryItem) => enqueue({ kind: 'remove', itemId: item.id });
 
   const handleClearChecked = () => enqueue({ kind: 'clearChecked' });
+
+  /** Ticks everything off (or puts it all back), one operation per item. */
+  const handleToggleAll = (checked: boolean) =>
+    enqueue(
+      ...items
+        .filter((item) => item.checked !== checked)
+        .map((item): PendingOp => ({ kind: 'toggle', itemId: item.id, checked }))
+    );
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,6 +209,7 @@ export default function GroceryPage() {
   }
 
   const checkedCount = items.filter((item) => item.checked).length;
+  const allChecked = items.length > 0 && checkedCount === items.length;
 
   return (
     <>
@@ -289,9 +303,24 @@ export default function GroceryPage() {
               <Typography variant="body2" color="text.secondary">
                 {tPlural('grocery.count', items.length, { count: items.length })}
               </Typography>
-              <Button size="small" onClick={handleClearChecked} disabled={checkedCount === 0}>
-                {t('grocery.clearChecked')}
-              </Button>
+              <Stack direction="row" spacing={0.5}>
+                <Button
+                  size="small"
+                  startIcon={allChecked ? <CheckBoxOutlineBlankIcon /> : <DoneAllIcon />}
+                  onClick={() => handleToggleAll(!allChecked)}
+                >
+                  {allChecked ? t('grocery.unmarkAll') : t('grocery.markAll')}
+                </Button>
+                <Button
+                  size="small"
+                  color="error"
+                  startIcon={<DeleteSweepIcon />}
+                  onClick={handleClearChecked}
+                  disabled={checkedCount === 0}
+                >
+                  {t('grocery.clearChecked')}
+                </Button>
+              </Stack>
             </Stack>
 
             <List disablePadding>
