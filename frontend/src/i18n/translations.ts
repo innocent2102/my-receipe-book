@@ -11,6 +11,7 @@ export const localeNames: Record<Locale, string> = {
 const en = {
   'common.appName': 'My Recipe Book',
   'common.cancel': 'Cancel',
+  'common.close': 'Close',
   'common.delete': 'Delete',
   'common.deleting': 'Deleting…',
   'common.add': 'Add',
@@ -127,6 +128,7 @@ export type TranslationKey = keyof typeof en;
 const pl: Record<TranslationKey, string> = {
   'common.appName': 'Moja Książka Kucharska',
   'common.cancel': 'Anuluj',
+  'common.close': 'Zamknij',
   'common.delete': 'Usuń',
   'common.deleting': 'Usuwanie…',
   'common.add': 'Dodaj',

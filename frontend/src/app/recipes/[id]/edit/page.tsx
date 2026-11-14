@@ -12,6 +12,7 @@ import {
   Alert,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CloseIcon from '@mui/icons-material/Close';
 import { ThemeToggle } from '../../../../components/ThemeToggle';
 import { LanguageToggle } from '../../../../components/LanguageToggle';
 import { UserMenu } from '../../../../components/UserMenu';
@@ -169,9 +170,21 @@ export default function EditRecipePage() {
           </Box>
         ) : initialValues ? (
           <Paper elevation={3} sx={{ p: 4 }}>
-            <Typography variant="h4" component="h1" gutterBottom>
-              {t('edit.heading')}
-            </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 2,
+              }}
+            >
+              <Typography variant="h4" component="h1" gutterBottom>
+                {t('edit.heading')}
+              </Typography>
+              <IconButton aria-label={t('common.close')} onClick={() => router.push(detailUrl)}>
+                <CloseIcon />
+              </IconButton>
+            </Box>
 
             <RecipeForm
               initialValues={initialValues}
