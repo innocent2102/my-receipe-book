@@ -162,6 +162,17 @@ export async function initDatabase() {
       )
     `);
 
+    // Share links: an unguessable token makes one recipe readable without a session.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS recipe_shares (
+        token TEXT PRIMARY KEY,
+        recipe_id TEXT NOT NULL UNIQUE,
+        user_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+      )
+    `);
+
     // Create meal_plans table
     db.exec(`
       CREATE TABLE IF NOT EXISTS meal_plans (

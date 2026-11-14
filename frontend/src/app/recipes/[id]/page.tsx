@@ -7,22 +7,18 @@ import {
   AppBar,
   Toolbar,
   Button,
-  Paper,
-  List,
-  ListItem,
-  ListItemText,
   CircularProgress,
   Alert,
-  Chip,
-  Stack,
-  Divider,
   Snackbar,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
 import EditIcon from '@mui/icons-material/Edit';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import ShareIcon from '@mui/icons-material/Share';
 import { AddToGroceryDialog } from '../../../components/AddToGroceryDialog';
+import { RecipeView } from '../../../components/RecipeView';
+import { ShareRecipeDialog } from '../../../components/ShareRecipeDialog';
 import { ThemeToggle } from '../../../components/ThemeToggle';
 import { LanguageToggle } from '../../../components/LanguageToggle';
 import { UserMenu } from '../../../components/UserMenu';
@@ -30,7 +26,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { downloadRecipeExport, slugify } from '../../../lib/recipeExport';
-import { youTubeEmbedUrl } from '../../../lib/youtube';
 import { useTranslation } from '../../../i18n/LanguageProvider';
 import { OfflineIndicator } from '../../../components/OfflineIndicator';
 import { useOnline } from '../../../lib/useOnline';
@@ -71,6 +66,7 @@ export default function RecipeDetailPage() {
   const [groceryOpen, setGroceryOpen] = useState(false);
   const [groceryAdded, setGroceryAdded] = useState<number | null>(null);
   const [usingOfflineCopy, setUsingOfflineCopy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const callbackUrl = recipeId ? `/recipes/${encodeURIComponent(recipeId)}` : '/recipes';
 
@@ -138,16 +134,6 @@ export default function RecipeDetailPage() {
     return null;
   }
 
-  const totalTime =
-    recipe && (recipe.prepTime != null || recipe.cookTime != null)
-      ? (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
-      : null;
-
-  const instructionSteps =
-    recipe?.instructions?.filter((step) => step.trim() !== '') ?? [];
-
-  const videoEmbedUrl = recipe?.videoUrl ? youTubeEmbedUrl(recipe.videoUrl) : null;
-
   const groceryCandidates = (recipe?.ingredients ?? []).filter(
     (ingredient) => ingredient.name.trim() !== ''
   );
@@ -201,6 +187,14 @@ export default function RecipeDetailPage() {
             </Button>
             <Button
               variant="outlined"
+              startIcon={<ShareIcon />}
+              onClick={() => setShareOpen(true)}
+              disabled={!recipe || !online}
+            >
+              {t('share.action')}
+            </Button>
+            <Button
+              variant="outlined"
               startIcon={<DownloadIcon />}
               onClick={() => {
                 if (recipe) downloadRecipeExport([recipe], slugify(recipe.title));
@@ -229,116 +223,15 @@ export default function RecipeDetailPage() {
             <CircularProgress />
           </Box>
         ) : recipe ? (
-          <Paper elevation={2} sx={{ p: { xs: 3, sm: 4 } }}>
-            <Typography variant="h4" component="h1" gutterBottom>
-              {recipe.title}
-            </Typography>
-
-            {recipe.description ? (
-              <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-                {recipe.description}
-              </Typography>
-            ) : null}
-
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 3 }}>
-              {recipe.prepTime != null ? (
-                <Chip size="small" label={t('recipes.chip.prep', { minutes: recipe.prepTime })} />
-              ) : null}
-              {recipe.cookTime != null ? (
-                <Chip size="small" label={t('recipes.chip.cook', { minutes: recipe.cookTime })} />
-              ) : null}
-              {totalTime != null ? (
-                <Chip
-                  size="small"
-                  color="primary"
-                  label={t('recipes.chip.total', { minutes: totalTime })}
-                />
-              ) : null}
-              {recipe.servings != null ? (
-                <Chip
-                  size="small"
-                  label={t('recipes.chip.servings', { count: recipe.servings })}
-                />
-              ) : null}
-              {recipe.tags?.map((tag) => (
-                <Chip key={tag} size="small" variant="outlined" label={tag} />
-              ))}
-            </Stack>
-
-            <Divider sx={{ mb: 3 }} />
-
-            {videoEmbedUrl ? (
-              <>
-                <Typography variant="h6" component="h2" gutterBottom>
-                  {t('detail.video')}
-                </Typography>
-                <Box
-                  sx={{
-                    position: 'relative',
-                    width: '100%',
-                    pt: '56.25%',
-                    mb: 3,
-                    borderRadius: 1,
-                    overflow: 'hidden',
-                  }}
-                >
-                  <Box
-                    component="iframe"
-                    src={videoEmbedUrl}
-                    title={t('detail.video')}
-                    allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    sx={{
-                      position: 'absolute',
-                      inset: 0,
-                      width: '100%',
-                      height: '100%',
-                      border: 0,
-                    }}
-                  />
-                </Box>
-              </>
-            ) : null}
-
-            <Typography variant="h6" component="h2" gutterBottom>
-              {t('detail.ingredients')}
-            </Typography>
-            {recipe.ingredients && recipe.ingredients.length > 0 ? (
-              <List dense disablePadding sx={{ mb: 3 }}>
-                {recipe.ingredients.map((ing) => (
-                  <ListItem key={ing.id} disableGutters sx={{ py: 0.5 }}>
-                    <ListItemText
-                      primary={[ing.amount || '', ing.unit || '', ing.name]
-                        .map((part) => String(part).trim())
-                        .filter((part) => part !== '')
-                        .join(' ')}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                {t('detail.noIngredients')}
-              </Typography>
-            )}
-
-            {instructionSteps.length > 0 ? (
-              <>
-                <Typography variant="h6" component="h2" gutterBottom>
-                  {t('detail.instructions')}
-                </Typography>
-                <Box component="ol" sx={{ pl: 3, m: 0 }}>
-                  {instructionSteps.map((step, index) => (
-                    <Box component="li" key={index} sx={{ mb: 1.5 }}>
-                      <Typography variant="body1">{step}</Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </>
-            ) : null}
-          </Paper>
+          <RecipeView recipe={recipe} />
         ) : null}
       </Container>
+
+      <ShareRecipeDialog
+        open={shareOpen}
+        recipeId={recipe?.id}
+        onClose={() => setShareOpen(false)}
+      />
 
       <AddToGroceryDialog
         open={groceryOpen}

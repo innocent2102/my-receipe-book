@@ -274,7 +274,7 @@ function updateRecipe(
 }
 
 /** Builds the API shape for a single recipe, including its ingredients and steps. */
-function loadRecipeDetail(db: Database, recipeId: string) {
+export function loadRecipeDetail(db: Database, recipeId: string) {
   const row = db.prepare('SELECT * FROM recipes WHERE id = ?').get(recipeId) as
     | RecipeRow
     | undefined;
@@ -309,7 +309,7 @@ function loadRecipeDetail(db: Database, recipeId: string) {
 }
 
 /** Returns the recipe id if it exists and the user may modify it, otherwise null. */
-function findOwnedRecipeId(db: Database, id: string, userId: string): string | null {
+export function findOwnedRecipeId(db: Database, id: string, userId: string): string | null {
   const row = db
     .prepare(
       `SELECT id FROM recipes
@@ -397,6 +397,15 @@ export function toRecipeSummaries(db: Database, recipes: RecipeRow[]) {
   });
 
   return data;
+}
+
+/** Saves an untrusted recipe payload for a user. Returns the new id, or null if invalid. */
+export function createRecipeForUser(db: Database, userId: string, raw: RecipeInput): string | null {
+  const normalized = normalizeRecipeInput(raw);
+  if (!normalized) return null;
+
+  const statements = recipeInsertStatements(db);
+  return db.transaction(() => insertRecipe(db, statements, userId, normalized))();
 }
 
 router.get('/:id', (req, res) => {
