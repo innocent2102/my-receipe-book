@@ -3,6 +3,10 @@
 A complete list of what **My Recipe Book** can do today, grouped by area. Paths point at the
 implementation so the list is easy to keep up to date.
 
+> **Keeping this current:** whenever a feature is added, changed or removed, update this file
+> **and** the in-app Features page content in `frontend/src/app/features/content.ts` (both the
+> `en` and `pl` lists). See `.github/copilot-instructions.md`.
+
 ## Accounts & access
 
 - **Google sign-in** via NextAuth — the only provider; it is registered only when
@@ -110,6 +114,9 @@ implementation so the list is easy to keep up to date.
   `frontend/src/theme/theme.ts`).
 - **Material UI** components with responsive layouts, loading spinners, inline error alerts and
   accessible labels on icon buttons.
+- **In-app Features page** at `/features` describing everything the app can do, in both
+  languages, reachable from the user menu and from the login screen
+  (`frontend/src/app/features/`).
 
 ## API
 

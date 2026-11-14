@@ -109,6 +109,7 @@ export function UserMenu() {
           </Box>
         </MenuItem>
         <Divider />
+        <MenuItem onClick={() => router.push('/features')}>{t('features.menu')}</MenuItem>
         <MenuItem onClick={handleSignOut}>{t('common.signOut')}</MenuItem>
       </Menu>
     </>

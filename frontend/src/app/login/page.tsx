@@ -139,6 +139,15 @@ export default function LoginPage() {
             <Typography variant="caption" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
               {t('login.terms')}
             </Typography>
+
+            <Button
+              variant="text"
+              size="small"
+              onClick={() => router.push('/features')}
+              sx={{ mt: 1 }}
+            >
+              {t('features.menu')}
+            </Button>
           </Paper>
         </Box>
       </Container>

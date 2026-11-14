@@ -82,6 +82,14 @@ const en = {
   'recipes.import.skipped.many': 'Skipped {count} recipes without a title.',
   'recipes.import.skipped.other': 'Skipped {count} recipes without a title.',
 
+  'features.title': 'Features',
+  'features.heading': 'What this app can do',
+  'features.intro':
+    'A complete overview of everything available in My Recipe Book, so you know what you can get out of it.',
+  'features.backAria': 'Back to recipes',
+  'features.openAria': 'Open the features page',
+  'features.menu': 'Features',
+
   'detail.title': 'Recipe',
   'detail.back': 'Back to recipes',
   'detail.ingredients': 'Ingredients',
@@ -251,6 +259,14 @@ const pl: Record<TranslationKey, string> = {
   'recipes.import.skipped.few': 'Pominięto {count} przepisy bez tytułu.',
   'recipes.import.skipped.many': 'Pominięto {count} przepisów bez tytułu.',
   'recipes.import.skipped.other': 'Pominięto {count} przepisu bez tytułu.',
+
+  'features.title': 'Funkcje',
+  'features.heading': 'Co potrafi ta aplikacja',
+  'features.intro':
+    'Pełny przegląd wszystkiego, co oferuje Moja Książka Kucharska, abyś wiedział, co możesz z niej wyciągnąć.',
+  'features.backAria': 'Powrót do przepisów',
+  'features.openAria': 'Otwórz stronę z funkcjami',
+  'features.menu': 'Funkcje',
 
   'detail.title': 'Przepis',
   'detail.back': 'Powrót do przepisów',
