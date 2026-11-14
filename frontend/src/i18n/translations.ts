@@ -83,7 +83,6 @@ const en = {
   'detail.ingredients': 'Ingredients',
   'detail.instructions': 'Instructions',
   'detail.noIngredients': 'No ingredients listed for this recipe.',
-  'detail.noInstructions': 'No instructions listed for this recipe.',
   'detail.notFound': 'Recipe not found or you no longer have access.',
   'detail.loadError': 'Could not load this recipe',
 
@@ -101,6 +100,7 @@ const en = {
   'add.unit': 'Unit',
   'add.unitPlaceholder': 'e.g., cups, tbsp, g',
   'add.ingredientName': 'Ingredient Name',
+  'add.ingredientNamePlaceholder': 'Pick one or type a new ingredient',
   'add.instructions': 'Instructions',
   'add.addStep': 'Add Step',
   'add.stepPlaceholder': 'Step {number}...',
@@ -192,7 +192,6 @@ const pl: Record<TranslationKey, string> = {
   'detail.ingredients': 'Składniki',
   'detail.instructions': 'Sposób przygotowania',
   'detail.noIngredients': 'Ten przepis nie ma podanych składników.',
-  'detail.noInstructions': 'Ten przepis nie ma podanych kroków przygotowania.',
   'detail.notFound': 'Nie znaleziono przepisu lub nie masz już do niego dostępu.',
   'detail.loadError': 'Nie udało się wczytać tego przepisu',
 
@@ -210,6 +209,7 @@ const pl: Record<TranslationKey, string> = {
   'add.unit': 'Jednostka',
   'add.unitPlaceholder': 'np. szklanki, łyżki, g',
   'add.ingredientName': 'Nazwa składnika',
+  'add.ingredientNamePlaceholder': 'Wybierz z listy lub wpisz nowy składnik',
   'add.instructions': 'Sposób przygotowania',
   'add.addStep': 'Dodaj krok',
   'add.stepPlaceholder': 'Krok {number}…',

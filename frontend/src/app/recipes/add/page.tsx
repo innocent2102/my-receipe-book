@@ -18,6 +18,7 @@ import {
   AppBar,
   Toolbar,
   CircularProgress,
+  Autocomplete,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -33,6 +34,8 @@ interface InstructionItem {
   text: string;
 }
 
+const normalizeIngredientName = (name: string) => name.trim().replace(/\s+/g, ' ');
+
 export default function AddRecipePage() {
   const router = useRouter();
   const { status } = useSession();
@@ -43,6 +46,7 @@ export default function AddRecipePage() {
   const [cookTime, setCookTime] = useState<number | ''>('');
   const [servings, setServings] = useState<number | ''>('');
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [ingredientOptions, setIngredientOptions] = useState<string[]>([]);
   const [instructions, setInstructions] = useState<InstructionItem[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
@@ -54,6 +58,63 @@ export default function AddRecipePage() {
       router.replace('/login?callbackUrl=/recipes/add');
     }
   }, [status, router]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+
+    let cancelled = false;
+
+    const loadIngredientOptions = async () => {
+      try {
+        const res = await fetch('/api/ingredients', { cache: 'no-store' });
+        const json = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          data?: string[];
+        };
+        if (!cancelled && res.ok && json.success && Array.isArray(json.data)) {
+          setIngredientOptions(json.data);
+        }
+      } catch (err) {
+        console.error('Error loading ingredient suggestions:', err);
+      }
+    };
+
+    loadIngredientOptions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [status]);
+
+  /** Persists a newly typed ingredient name so it shows up in future autocompletes. */
+  const rememberIngredientName = async (rawName: string) => {
+    const name = normalizeIngredientName(rawName);
+    if (!name) return;
+
+    const isKnown = ingredientOptions.some(
+      (option) => option.toLowerCase() === name.toLowerCase()
+    );
+    if (isKnown) return;
+
+    setIngredientOptions((prev) => [...prev, name].sort((a, b) => a.localeCompare(b)));
+
+    try {
+      const res = await fetch('/api/ingredients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: string[];
+      };
+      if (res.ok && json.success && Array.isArray(json.data)) {
+        setIngredientOptions(json.data);
+      }
+    } catch (err) {
+      console.error('Error saving ingredient:', err);
+    }
+  };
 
   const addIngredient = () => {
     setIngredients([
@@ -314,11 +375,31 @@ export default function AddRecipePage() {
                         sx={{ flex: 1 }}
                         placeholder={t('add.unitPlaceholder')}
                       />
-                      <TextField
-                        label={t('add.ingredientName')}
+                      <Autocomplete
+                        freeSolo
+                        autoHighlight
+                        selectOnFocus
+                        handleHomeEndKeys
+                        options={ingredientOptions}
+                        inputValue={ingredient.name}
                         value={ingredient.name}
-                        onChange={(e) => updateIngredient(ingredient.id, 'name', e.target.value)}
                         sx={{ flex: 2 }}
+                        onInputChange={(_event, newInputValue) =>
+                          updateIngredient(ingredient.id, 'name', newInputValue)
+                        }
+                        onChange={(_event, newValue) => {
+                          const name = typeof newValue === 'string' ? newValue : '';
+                          updateIngredient(ingredient.id, 'name', name);
+                          void rememberIngredientName(name);
+                        }}
+                        onBlur={() => void rememberIngredientName(ingredient.name)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label={t('add.ingredientName')}
+                            placeholder={t('add.ingredientNamePlaceholder')}
+                          />
+                        )}
                       />
                       <IconButton
                         color="error"

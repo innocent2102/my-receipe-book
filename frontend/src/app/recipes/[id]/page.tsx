@@ -112,6 +112,9 @@ export default function RecipeDetailPage() {
       ? (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
       : null;
 
+  const instructionSteps =
+    recipe?.instructions?.filter((step) => step.trim() !== '') ?? [];
+
   return (
     <>
       <AppBar position="static">
@@ -221,22 +224,20 @@ export default function RecipeDetailPage() {
               </Typography>
             )}
 
-            <Typography variant="h6" component="h2" gutterBottom>
-              {t('detail.instructions')}
-            </Typography>
-            {recipe.instructions && recipe.instructions.length > 0 ? (
-              <Box component="ol" sx={{ pl: 3, m: 0 }}>
-                {recipe.instructions.map((step, index) => (
-                  <Box component="li" key={index} sx={{ mb: 1.5 }}>
-                    <Typography variant="body1">{step}</Typography>
-                  </Box>
-                ))}
-              </Box>
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                {t('detail.noInstructions')}
-              </Typography>
-            )}
+            {instructionSteps.length > 0 ? (
+              <>
+                <Typography variant="h6" component="h2" gutterBottom>
+                  {t('detail.instructions')}
+                </Typography>
+                <Box component="ol" sx={{ pl: 3, m: 0 }}>
+                  {instructionSteps.map((step, index) => (
+                    <Box component="li" key={index} sx={{ mb: 1.5 }}>
+                      <Typography variant="body1">{step}</Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </>
+            ) : null}
           </Paper>
         ) : null}
       </Container>

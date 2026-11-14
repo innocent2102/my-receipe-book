@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Database } from 'better-sqlite3';
 import { getDatabase, isDbAvailable } from '../database.js';
 import { requireRecipeUser } from '../recipeAuth.js';
+import { rememberIngredientNames } from '../ingredientCatalog.js';
 
 const router = Router();
 
@@ -138,6 +139,7 @@ function recipeInsertStatements(db: Database) {
 
 /** Writes one normalized recipe. Caller is responsible for the surrounding transaction. */
 function insertRecipe(
+  db: Database,
   statements: ReturnType<typeof recipeInsertStatements>,
   userId: string,
   recipe: NormalizedRecipe
@@ -176,6 +178,8 @@ function insertRecipe(
       instruction: text,
     });
   });
+
+  rememberIngredientNames(db, userId, recipe.ingredients.map((ing) => ing.name));
 
   return recipeId;
 }
@@ -331,7 +335,7 @@ router.post('/', (req, res) => {
 
   let recipeId: string;
   try {
-    recipeId = db.transaction(() => insertRecipe(statements, userId, normalized))();
+    recipeId = db.transaction(() => insertRecipe(db, statements, userId, normalized))();
   } catch (e) {
     console.error('Failed to save recipe:', e);
     return res.status(500).json({ success: false, error: 'Failed to save recipe' });
@@ -430,7 +434,7 @@ router.post('/import', (req, res) => {
     // All-or-nothing: a partially applied import would be confusing to undo.
     db.transaction(() => {
       for (const recipe of normalized) {
-        insertRecipe(statements, userId, recipe);
+        insertRecipe(db, statements, userId, recipe);
       }
     })();
   } catch (e) {

@@ -78,6 +78,22 @@ export async function initDatabase() {
       )
     `);
 
+    // Create ingredient_catalog table (known ingredient names per user, for autocomplete)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ingredient_catalog (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        name_key TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
+
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_ingredient_catalog_user_name
+      ON ingredient_catalog (user_id, name_key)
+    `);
+
     // Create instructions table
     db.exec(`
       CREATE TABLE IF NOT EXISTS instructions (

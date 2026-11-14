@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { initDatabase, isDbAvailable } from './database.js';
 import recipesRouter from './routes/recipes.js';
+import ingredientsRouter from './routes/ingredients.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -21,6 +22,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/recipes', recipesRouter);
+app.use('/api/ingredients', ingredientsRouter);
 
 async function bootstrap() {
   const dbInitialized = await initDatabase();
