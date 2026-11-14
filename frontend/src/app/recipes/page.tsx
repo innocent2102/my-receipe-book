@@ -22,17 +22,21 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import DownloadIcon from '@mui/icons-material/Download';
 import UploadIcon from '@mui/icons-material/Upload';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { LanguageToggle } from '../../components/LanguageToggle';
 import { UserMenu } from '../../components/UserMenu';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { downloadRecipeExport, exportDateStamp } from '../../lib/recipeExport';
 import { useTranslation } from '../../i18n/LanguageProvider';
@@ -56,6 +60,17 @@ const ingredientNames = (recipe: RecipeListItem) =>
     .filter((name): name is string => Boolean(name))
     .join(', ');
 
+/** Everything a search term may match: title, description, ingredients and tags. */
+const searchHaystack = (recipe: RecipeListItem) =>
+  [
+    recipe.title,
+    recipe.description ?? '',
+    ingredientNames(recipe),
+    (recipe.tags ?? []).join(' '),
+  ]
+    .join(' ')
+    .toLowerCase();
+
 export default function RecipesPage() {
   const router = useRouter();
   const { status } = useSession();
@@ -69,6 +84,17 @@ export default function RecipesPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+
+  /** All whitespace-separated terms must match, so extra words narrow the list. */
+  const filteredRecipes = useMemo(() => {
+    const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return recipes;
+    return recipes.filter((recipe) => {
+      const haystack = searchHaystack(recipe);
+      return terms.every((term) => haystack.includes(term));
+    });
+  }, [recipes, search]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -266,6 +292,43 @@ export default function RecipesPage() {
           }}
         />
 
+        {!loading && recipes.length > 0 ? (
+          <Box sx={{ mb: 3 }}>
+            <TextField
+              fullWidth
+              size="small"
+              type="search"
+              label={t('recipes.search.label')}
+              placeholder={t('recipes.search.placeholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+                endAdornment: search ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      aria-label={t('recipes.search.clear')}
+                      onClick={() => setSearch('')}
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+              }}
+            />
+            {search.trim() ? (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                {tPlural('recipes.search.results', filteredRecipes.length)}
+              </Typography>
+            ) : null}
+          </Box>
+        ) : null}
+
         {importResult && (
           <Alert severity="success" sx={{ mb: 3 }} onClose={() => setImportResult(null)}>
             {importResult}
@@ -311,10 +374,22 @@ export default function RecipesPage() {
               </Button>
             </Stack>
           </Paper>
+        ) : filteredRecipes.length === 0 ? (
+          <Paper elevation={2} sx={{ p: 4, textAlign: 'center' }}>
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              {t('recipes.search.noResults.title')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              {t('recipes.search.noResults.body', { query: search.trim() })}
+            </Typography>
+            <Button variant="outlined" startIcon={<ClearIcon />} onClick={() => setSearch('')}>
+              {t('recipes.search.clear')}
+            </Button>
+          </Paper>
         ) : (
           <Paper elevation={2} sx={{ overflow: 'hidden' }}>
             <List disablePadding>
-              {recipes.map((recipe, index) => {
+              {filteredRecipes.map((recipe, index) => {
                 const ingredientSummary = ingredientNames(recipe);
 
                 return (

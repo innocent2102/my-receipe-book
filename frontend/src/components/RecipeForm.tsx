@@ -323,23 +323,6 @@ export function RecipeForm({
                   borderRadius: 1,
                 }}
               >
-                <TextField
-                  label={t('add.amount')}
-                  type="number"
-                  value={ingredient.amount || ''}
-                  onChange={(e) =>
-                    updateIngredient(ingredient.id, 'amount', Number(e.target.value) || 0)
-                  }
-                  sx={{ width: 100 }}
-                  inputProps={{ step: 0.1 }}
-                />
-                <TextField
-                  label={t('add.unit')}
-                  value={ingredient.unit}
-                  onChange={(e) => updateIngredient(ingredient.id, 'unit', e.target.value)}
-                  sx={{ flex: 1 }}
-                  placeholder={t('add.unitPlaceholder')}
-                />
                 <Autocomplete
                   freeSolo
                   autoHighlight
@@ -394,6 +377,23 @@ export function RecipeForm({
                       placeholder={t('add.ingredientNamePlaceholder')}
                     />
                   )}
+                />
+                <TextField
+                  label={t('add.amount')}
+                  type="number"
+                  value={ingredient.amount || ''}
+                  onChange={(e) =>
+                    updateIngredient(ingredient.id, 'amount', Number(e.target.value) || 0)
+                  }
+                  sx={{ width: 110 }}
+                  inputProps={{ step: 0.1 }}
+                />
+                <TextField
+                  label={t('add.unit')}
+                  value={ingredient.unit}
+                  onChange={(e) => updateIngredient(ingredient.id, 'unit', e.target.value)}
+                  sx={{ flex: 1 }}
+                  placeholder={t('add.unitPlaceholder')}
                 />
                 <IconButton
                   color="error"
