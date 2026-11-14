@@ -2,7 +2,11 @@ import { Router } from 'express';
 import type { Database } from 'better-sqlite3';
 import { getDatabase, isDbAvailable } from '../database.js';
 import { requireRecipeUser } from '../recipeAuth.js';
-import { listIngredientNames, rememberIngredientNames } from '../ingredientCatalog.js';
+import {
+  forgetIngredientName,
+  listIngredientNames,
+  rememberIngredientNames,
+} from '../ingredientCatalog.js';
 
 const router = Router();
 
@@ -51,6 +55,35 @@ router.post('/', (req, res) => {
   }
 
   return res.status(201).json({ success: true, data: listIngredientNames(db, userId) });
+});
+
+/** Removes a name from the user's catalog so it stops showing up in autocomplete. */
+router.delete('/', (req, res) => {
+  if (!isDbAvailable()) {
+    return res.status(503).json({ success: false, error: 'Database unavailable' });
+  }
+
+  const userId = requireRecipeUser(req, res);
+  if (!userId) return;
+
+  const name = typeof req.query.name === 'string' ? req.query.name.trim() : '';
+  if (!name) {
+    return res.status(400).json({ success: false, error: 'Ingredient name is required' });
+  }
+
+  const db = getDatabase() as Database;
+
+  try {
+    const removed = forgetIngredientName(db, userId, name);
+    if (!removed) {
+      return res.status(404).json({ success: false, error: 'Ingredient not found' });
+    }
+  } catch (e) {
+    console.error('Failed to remove ingredient:', e);
+    return res.status(500).json({ success: false, error: 'Failed to remove ingredient' });
+  }
+
+  return res.json({ success: true, data: listIngredientNames(db, userId) });
 });
 
 export default router;

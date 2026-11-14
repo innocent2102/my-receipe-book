@@ -41,6 +41,18 @@ export function rememberIngredientNames(db: Database, userId: string, names: str
   }
 }
 
+/** Removes a name from the user's catalog. Returns true when an entry was deleted. */
+export function forgetIngredientName(db: Database, userId: string, name: string): boolean {
+  const nameKey = ingredientNameKey(name);
+  if (!nameKey) return false;
+
+  const result = db
+    .prepare('DELETE FROM ingredient_catalog WHERE user_id = ? AND name_key = ?')
+    .run(userId, nameKey);
+
+  return result.changes > 0;
+}
+
 /** Returns the user's known ingredient names, optionally filtered by a search term. */
 export function listIngredientNames(db: Database, userId: string, query?: string): string[] {
   const search = query?.trim();

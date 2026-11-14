@@ -14,6 +14,7 @@ import {
   Autocomplete,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Ingredient, generateId } from '@my-receipe-book/shared';
 import { useTranslation } from '../i18n/LanguageProvider';
@@ -123,6 +124,26 @@ export function RecipeForm({
       }
     } catch (err) {
       console.error('Error saving ingredient:', err);
+    }
+  };
+
+  /** Drops a suggestion from the user's catalog (the ✕ on a dropdown option). */
+  const forgetIngredientName = async (name: string) => {
+    setIngredientOptions((prev) => prev.filter((option) => option !== name));
+
+    try {
+      const res = await fetch(`/api/ingredients?name=${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: string[];
+      };
+      if (res.ok && json.success && Array.isArray(json.data)) {
+        setIngredientOptions(json.data);
+      }
+    } catch (err) {
+      console.error('Error removing ingredient suggestion:', err);
     }
   };
 
@@ -336,6 +357,35 @@ export function RecipeForm({
                     void rememberIngredientName(name);
                   }}
                   onBlur={() => void rememberIngredientName(ingredient.name)}
+                  renderOption={(props, option) => {
+                    const { key, ...optionProps } = props as React.HTMLAttributes<HTMLLIElement> & {
+                      key: string;
+                    };
+                    return (
+                      <Box
+                        component="li"
+                        key={key}
+                        {...optionProps}
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                      >
+                        <Box component="span" sx={{ flexGrow: 1 }}>
+                          {option}
+                        </Box>
+                        <IconButton
+                          size="small"
+                          edge="end"
+                          aria-label={t('add.forgetIngredientAria', { name: option })}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void forgetIngredientName(option);
+                          }}
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    );
+                  }}
                   renderInput={(params) => (
                     <TextField
                       {...params}

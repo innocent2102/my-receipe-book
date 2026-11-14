@@ -25,6 +25,34 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(body, { status: res.status });
 }
 
+/** DELETE removes an ingredient name from the user's suggestions. */
+export async function DELETE(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
+  if (!userId) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const name = req.nextUrl.searchParams.get('name')?.trim();
+  if (!name) {
+    return NextResponse.json(
+      { success: false, error: 'Missing ingredient name' },
+      { status: 400 }
+    );
+  }
+
+  const res = await fetch(
+    `${recipesBackendBaseUrl()}/api/ingredients?name=${encodeURIComponent(name)}`,
+    {
+      method: 'DELETE',
+      headers: recipesProxyHeaders(userId),
+    }
+  );
+
+  const body = await res.json().catch(() => ({}));
+  return NextResponse.json(body, { status: res.status });
+}
+
 /** POST adds a new ingredient name to the user's list. */
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);

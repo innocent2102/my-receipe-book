@@ -49,6 +49,13 @@ type RecipeListItem = {
   tags?: string[];
 };
 
+/** Comma-separated ingredient names for the compact row summary. */
+const ingredientNames = (recipe: RecipeListItem) =>
+  (recipe.ingredients ?? [])
+    .map((ing) => ing.name?.trim())
+    .filter((name): name is string => Boolean(name))
+    .join(', ');
+
 export default function RecipesPage() {
   const router = useRouter();
   const { status } = useSession();
@@ -307,7 +314,10 @@ export default function RecipesPage() {
         ) : (
           <Paper elevation={2} sx={{ overflow: 'hidden' }}>
             <List disablePadding>
-              {recipes.map((recipe, index) => (
+              {recipes.map((recipe, index) => {
+                const ingredientSummary = ingredientNames(recipe);
+
+                return (
                 <Box key={recipe.id}>
                   {index > 0 ? <Box sx={{ borderTop: 1, borderColor: 'divider' }} /> : null}
                   <ListItem
@@ -354,6 +364,16 @@ export default function RecipesPage() {
                                 {recipe.description}
                               </Typography>
                             ) : null}
+                            {ingredientSummary ? (
+                              <Typography
+                                variant="caption"
+                                color="text.disabled"
+                                noWrap
+                                sx={{ display: 'block', mt: 0.5 }}
+                              >
+                                {ingredientSummary}
+                              </Typography>
+                            ) : null}
                             <Stack
                               direction="row"
                               spacing={1}
@@ -390,7 +410,8 @@ export default function RecipesPage() {
                     </ListItemButton>
                   </ListItem>
                 </Box>
-              ))}
+                );
+              })}
             </List>
           </Paper>
         )}
