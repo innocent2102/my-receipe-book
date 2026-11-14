@@ -15,9 +15,12 @@ import { useEffect, useState } from 'react';
 import type { ClientSafeProvider } from 'next-auth/react';
 import { AppBar, Toolbar } from '@mui/material';
 import { ThemeToggle } from '../../components/ThemeToggle';
+import { LanguageToggle } from '../../components/LanguageToggle';
+import { useTranslation } from '../../i18n/LanguageProvider';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [providers, setProviders] = useState<Record<
@@ -51,16 +54,16 @@ export default function LoginPage() {
       if (result?.error) {
         setError(
           result.error === 'OAuthSignin' || result.error === 'Configuration'
-            ? 'Sign-in is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in frontend/.env.local (see frontend/GOOGLE_OAUTH_SETUP.md).'
-            : 'Failed to sign in. Please try again.'
+            ? t('login.errorNotConfigured')
+            : t('login.errorGeneric')
         );
         setIsLoading(false);
       } else if (result?.ok) {
         router.push('/');
         router.refresh();
       }
-    } catch (err) {
-      setError('An error occurred during sign in.');
+    } catch {
+      setError(t('login.errorDuringSignIn'));
       setIsLoading(false);
     }
   };
@@ -70,8 +73,9 @@ export default function LoginPage() {
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            My Recipe Book
+            {t('common.appName')}
           </Typography>
+          <LanguageToggle />
           <ThemeToggle />
         </Toolbar>
       </AppBar>
@@ -95,10 +99,10 @@ export default function LoginPage() {
             }}
           >
             <Typography component="h1" variant="h4" gutterBottom>
-              Welcome Back
+              {t('login.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
-              Sign in to access your recipes and grocery lists
+              {t('login.subtitle')}
             </Typography>
 
             {error && (
@@ -109,11 +113,7 @@ export default function LoginPage() {
 
             {providers && !providers.google && (
               <Alert severity="info" sx={{ width: '100%', mb: 2 }}>
-                Google sign-in is not configured. Add{' '}
-                <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>,{' '}
-                <code>NEXTAUTH_URL</code>, and <code>NEXTAUTH_SECRET</code> to{' '}
-                <code>.env.local</code> in the frontend folder. See{' '}
-                <code>frontend/GOOGLE_OAUTH_SETUP.md</code>.
+                {t('login.notConfigured')}
               </Alert>
             )}
 
@@ -133,12 +133,21 @@ export default function LoginPage() {
                 },
               }}
             >
-              {isLoading ? 'Signing in...' : 'Sign in with Google'}
+              {isLoading ? t('login.signingIn') : t('login.signInWithGoogle')}
             </Button>
 
             <Typography variant="caption" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
-              By signing in, you agree to our Terms of Service and Privacy Policy
+              {t('login.terms')}
             </Typography>
+
+            <Button
+              variant="text"
+              size="small"
+              onClick={() => router.push('/features')}
+              sx={{ mt: 1 }}
+            >
+              {t('features.menu')}
+            </Button>
           </Paper>
         </Box>
       </Container>

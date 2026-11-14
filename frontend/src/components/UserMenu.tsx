@@ -12,10 +12,12 @@ import {
   Box,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from '../i18n/LanguageProvider';
 
 export function UserMenu() {
   const { data: session } = useSession();
   const router = useRouter();
+  const { t } = useTranslation();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
@@ -39,7 +41,7 @@ export function UserMenu() {
         onClick={() => router.push('/login')}
         sx={{ ml: 2 }}
       >
-        Login
+        {t('common.login')}
       </IconButton>
     );
   }
@@ -107,7 +109,8 @@ export function UserMenu() {
           </Box>
         </MenuItem>
         <Divider />
-        <MenuItem onClick={handleSignOut}>Sign Out</MenuItem>
+        <MenuItem onClick={() => router.push('/features')}>{t('features.menu')}</MenuItem>
+        <MenuItem onClick={handleSignOut}>{t('common.signOut')}</MenuItem>
       </Menu>
     </>
   );

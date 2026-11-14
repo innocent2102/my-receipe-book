@@ -53,6 +53,7 @@ export async function initDatabase() {
         cook_time INTEGER,
         servings INTEGER,
         tags TEXT,
+        video_url TEXT,
         user_id TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
@@ -65,6 +66,9 @@ export async function initDatabase() {
     if (!recipeColumns.some((c) => c.name === 'user_id')) {
       db.exec(`ALTER TABLE recipes ADD COLUMN user_id TEXT`);
     }
+    if (!recipeColumns.some((c) => c.name === 'video_url')) {
+      db.exec(`ALTER TABLE recipes ADD COLUMN video_url TEXT`);
+    }
 
     // Create ingredients table
     db.exec(`
@@ -76,6 +80,22 @@ export async function initDatabase() {
         unit TEXT NOT NULL,
         FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
       )
+    `);
+
+    // Create ingredient_catalog table (known ingredient names per user, for autocomplete)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ingredient_catalog (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        name_key TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
+
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_ingredient_catalog_user_name
+      ON ingredient_catalog (user_id, name_key)
     `);
 
     // Create instructions table
@@ -94,10 +114,18 @@ export async function initDatabase() {
       CREATE TABLE IF NOT EXISTS grocery_lists (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        user_id TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
     `);
+
+    const groceryListColumns = db
+      .prepare(`PRAGMA table_info(grocery_lists)`)
+      .all() as { name: string }[];
+    if (!groceryListColumns.some((c) => c.name === 'user_id')) {
+      db.exec(`ALTER TABLE grocery_lists ADD COLUMN user_id TEXT`);
+    }
 
     // Create grocery_items table
     db.exec(`
@@ -109,8 +137,39 @@ export async function initDatabase() {
         unit TEXT NOT NULL,
         checked INTEGER DEFAULT 0,
         recipe_id TEXT,
+        created_at TEXT,
         FOREIGN KEY (grocery_list_id) REFERENCES grocery_lists(id) ON DELETE CASCADE,
         FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE SET NULL
+      )
+    `);
+
+    const groceryItemColumns = db
+      .prepare(`PRAGMA table_info(grocery_items)`)
+      .all() as { name: string }[];
+    if (!groceryItemColumns.some((c) => c.name === 'created_at')) {
+      db.exec(`ALTER TABLE grocery_items ADD COLUMN created_at TEXT`);
+    }
+
+    // Recipes the user intends to cook soon ("planned"); one row per user+recipe.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS planned_recipes (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        recipe_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(user_id, recipe_id),
+        FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Share links: an unguessable token makes one recipe readable without a session.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS recipe_shares (
+        token TEXT PRIMARY KEY,
+        recipe_id TEXT NOT NULL UNIQUE,
+        user_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
       )
     `);
 

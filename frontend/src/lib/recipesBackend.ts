@@ -14,3 +14,9 @@ export function recipesProxyHeaders(sessionUserId: string): HeadersInit {
   }
   return headers;
 }
+
+/** Headers for endpoints that need no session, e.g. reading a shared recipe by token. */
+export function publicProxyHeaders(): HeadersInit {
+  const secret = process.env.RECIPES_PROXY_SECRET?.trim();
+  return secret ? { 'X-Recipes-Proxy-Secret': secret } : {};
+}
