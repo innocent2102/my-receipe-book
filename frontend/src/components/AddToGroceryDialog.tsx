@@ -27,6 +27,20 @@ export type GroceryCandidate = {
   unit: string;
 };
 
+/** Named ingredients of a recipe, shaped for this dialog. */
+export const groceryCandidates = (recipe: {
+  id: string;
+  ingredients?: { name?: string; amount?: number; unit?: string }[];
+}): GroceryCandidate[] =>
+  (recipe.ingredients ?? [])
+    .map((ing, index) => ({
+      id: `${recipe.id}-${index}`,
+      name: ing.name?.trim() ?? '',
+      amount: ing.amount ?? 0,
+      unit: ing.unit?.trim() ?? '',
+    }))
+    .filter((ing) => ing.name !== '');
+
 type Props = {
   open: boolean;
   recipeId?: string;

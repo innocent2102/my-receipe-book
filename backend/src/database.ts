@@ -150,6 +150,18 @@ export async function initDatabase() {
       db.exec(`ALTER TABLE grocery_items ADD COLUMN created_at TEXT`);
     }
 
+    // Recipes the user intends to cook soon ("planned"); one row per user+recipe.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS planned_recipes (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        recipe_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(user_id, recipe_id),
+        FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+      )
+    `);
+
     // Create meal_plans table
     db.exec(`
       CREATE TABLE IF NOT EXISTS meal_plans (

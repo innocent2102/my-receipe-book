@@ -10,7 +10,7 @@ function generateRecipeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-type RecipeRow = {
+export type RecipeRow = {
   id: string;
   title: string;
   description: string | null;
@@ -338,9 +338,12 @@ router.get('/', (req, res) => {
     )
     .all(userId) as RecipeRow[];
 
-  if (recipes.length === 0) {
-    return res.json({ success: true, data: [] });
-  }
+  return res.json({ success: true, data: toRecipeSummaries(db, recipes) });
+});
+
+/** Maps recipe rows to the list response, pulling ingredients/steps in two queries. */
+export function toRecipeSummaries(db: Database, recipes: RecipeRow[]) {
+  if (recipes.length === 0) return [];
 
   const ids = recipes.map((r) => r.id);
   const placeholders = ids.map(() => '?').join(',');
@@ -393,8 +396,8 @@ router.get('/', (req, res) => {
     };
   });
 
-  return res.json({ success: true, data });
-});
+  return data;
+}
 
 router.get('/:id', (req, res) => {
   if (!isDbAvailable()) {

@@ -4,6 +4,7 @@ import { initDatabase, isDbAvailable } from './database.js';
 import recipesRouter from './routes/recipes.js';
 import ingredientsRouter from './routes/ingredients.js';
 import groceryRouter from './routes/grocery.js';
+import plannedRouter from './routes/planned.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,6 +26,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/recipes', recipesRouter);
 app.use('/api/ingredients', ingredientsRouter);
 app.use('/api/grocery', groceryRouter);
+app.use('/api/planned', plannedRouter);
 
 async function bootstrap() {
   const dbInitialized = await initDatabase();

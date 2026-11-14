@@ -2,6 +2,8 @@
 
 Create and save your own recipes, access your favorites instantly, and generate grocery lists in seconds. Plan meals easily and keep all your go-to dishes organized in one convenient app.
 
+See [features.md](features.md) for the full list of what the app can do.
+
 ## Monorepo Structure
 
 This project is organized as a monorepo with the following workspaces:

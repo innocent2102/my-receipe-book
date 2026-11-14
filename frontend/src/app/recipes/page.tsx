@@ -25,6 +25,7 @@ import {
   TextField,
   InputAdornment,
   Snackbar,
+  Tooltip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -34,9 +35,12 @@ import UploadIcon from '@mui/icons-material/Upload';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
+import BookmarkAddOutlinedIcon from '@mui/icons-material/BookmarkAddOutlined';
+import BookmarksIcon from '@mui/icons-material/Bookmarks';
 import {
   AddToGroceryDialog,
-  type GroceryCandidate,
+  groceryCandidates,
 } from '../../components/AddToGroceryDialog';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { LanguageToggle } from '../../components/LanguageToggle';
@@ -49,38 +53,12 @@ import { useTranslation } from '../../i18n/LanguageProvider';
 import { OfflineIndicator } from '../../components/OfflineIndicator';
 import { useOnline } from '../../lib/useOnline';
 import { readOffline, writeOffline } from '../../lib/offlineStore';
+import { RecipeRows, ingredientNames, type RecipeSummary } from '../../components/RecipeRows';
 
 const RECIPES_CACHE_KEY = 'recipes.list';
+const PLANNED_CACHE_KEY = 'planned.ids';
 
-type RecipeListItem = {
-  id: string;
-  title: string;
-  description?: string;
-  ingredients?: { name?: string; amount?: number; unit?: string }[];
-  instructions?: string[];
-  prepTime?: number;
-  cookTime?: number;
-  servings?: number;
-  tags?: string[];
-};
-
-/** Comma-separated ingredient names for the compact row summary. */
-const ingredientNames = (recipe: RecipeListItem) =>
-  (recipe.ingredients ?? [])
-    .map((ing) => ing.name?.trim())
-    .filter((name): name is string => Boolean(name))
-    .join(', ');
-
-/** Named ingredients of a recipe, shaped for the shopping-list dialog. */
-const groceryCandidates = (recipe: RecipeListItem): GroceryCandidate[] =>
-  (recipe.ingredients ?? [])
-    .map((ing, index) => ({
-      id: `${recipe.id}-${index}`,
-      name: ing.name?.trim() ?? '',
-      amount: ing.amount ?? 0,
-      unit: ing.unit?.trim() ?? '',
-    }))
-    .filter((ing) => ing.name !== '');
+type RecipeListItem = RecipeSummary;
 
 /** Everything a search term may match: title, description, ingredients and tags. */
 const searchHaystack = (recipe: RecipeListItem) =>
@@ -111,6 +89,7 @@ export default function RecipesPage() {
   const [groceryTarget, setGroceryTarget] = useState<RecipeListItem | null>(null);
   const [groceryAdded, setGroceryAdded] = useState<number | null>(null);
   const [usingOfflineCopy, setUsingOfflineCopy] = useState(false);
+  const [plannedIds, setPlannedIds] = useState<Set<string>>(new Set());
 
   /** All whitespace-separated terms must match, so extra words narrow the list. */
   const filteredRecipes = useMemo(() => {
@@ -182,6 +161,50 @@ export default function RecipesPage() {
   const handleExportAll = () => {
     if (recipes.length === 0) return;
     downloadRecipeExport(recipes, `my-recipes-${exportDateStamp()}`);
+  };
+
+  /** Keeps the bookmark icons in sync with the planned list. */
+  const loadPlanned = useCallback(async () => {
+    try {
+      const res = await fetch('/api/planned', { cache: 'no-store' });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: { id: string }[];
+      };
+      if (res.ok && json.success && Array.isArray(json.data)) {
+        const ids = json.data.map((recipe) => recipe.id);
+        setPlannedIds(new Set(ids));
+        writeOffline(PLANNED_CACHE_KEY, ids);
+      }
+    } catch {
+      setPlannedIds(new Set(readOffline<string[]>(PLANNED_CACHE_KEY) ?? []));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (status === 'authenticated' && online) {
+      void loadPlanned();
+    } else {
+      setPlannedIds(new Set(readOffline<string[]>(PLANNED_CACHE_KEY) ?? []));
+    }
+  }, [status, online, loadPlanned]);
+
+  const togglePlanned = async (recipeId: string) => {
+    const planned = plannedIds.has(recipeId);
+    setError(null);
+    try {
+      const res = planned
+        ? await fetch(`/api/planned?id=${encodeURIComponent(recipeId)}`, { method: 'DELETE' })
+        : await fetch('/api/planned', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recipeId }),
+          });
+      if (!res.ok) throw new Error(t('planned.updateFailed'));
+      await loadPlanned();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('planned.updateFailed'));
+    }
   };
 
   const handleImportFile = async (file: File) => {
@@ -276,13 +299,60 @@ export default function RecipesPage() {
             {t('recipes.title')}
           </Typography>
           <OfflineIndicator online={online} />
-          <IconButton
-            color="inherit"
-            aria-label={t('grocery.openAria')}
-            onClick={() => router.push('/grocery')}
-          >
-            <ShoppingCartIcon />
-          </IconButton>
+          <Tooltip title={t('planned.title')}>
+            <IconButton
+              color="inherit"
+              aria-label={t('planned.openAria')}
+              onClick={() => router.push('/planned')}
+            >
+              <BookmarksIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t('recipes.addRecipe')}>
+            <span>
+              <IconButton
+                color="inherit"
+                aria-label={t('recipes.addRecipe')}
+                onClick={() => router.push('/recipes/add')}
+                disabled={!online}
+              >
+                <AddIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={importing ? t('common.importing') : t('common.import')}>
+            <span>
+              <IconButton
+                color="inherit"
+                aria-label={t('common.import')}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={importing || !online}
+              >
+                <UploadIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={t('recipes.exportAll')}>
+            <span>
+              <IconButton
+                color="inherit"
+                aria-label={t('recipes.exportAll')}
+                onClick={handleExportAll}
+                disabled={loading || recipes.length === 0}
+              >
+                <DownloadIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={t('grocery.openAria')}>
+            <IconButton
+              color="inherit"
+              aria-label={t('grocery.openAria')}
+              onClick={() => router.push('/grocery')}
+            >
+              <ShoppingCartIcon />
+            </IconButton>
+          </Tooltip>
           <LanguageToggle />
           <ThemeToggle />
           <UserMenu />
@@ -290,47 +360,6 @@ export default function RecipesPage() {
       </AppBar>
 
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: { xs: 'stretch', sm: 'center' },
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: 2,
-            mb: 4,
-          }}
-        >
-          <Typography variant="h4" component="h1">
-            {t('recipes.title')}
-          </Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Button
-              variant="outlined"
-              startIcon={<DownloadIcon />}
-              onClick={handleExportAll}
-              disabled={loading || recipes.length === 0}
-            >
-              {t('recipes.exportAll')}
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<UploadIcon />}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={importing || !online}
-            >
-              {importing ? t('common.importing') : t('common.import')}
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => router.push('/recipes/add')}
-              disabled={!online}
-            >
-              {t('recipes.addRecipe')}
-            </Button>
-          </Stack>
-        </Box>
-
         <input
           ref={fileInputRef}
           type="file"
@@ -445,114 +474,54 @@ export default function RecipesPage() {
           </Paper>
         ) : (
           <Paper elevation={2} sx={{ overflow: 'hidden' }}>
-            <List disablePadding>
-              {filteredRecipes.map((recipe, index) => {
-                const ingredientSummary = ingredientNames(recipe);
-
-                return (
-                <Box key={recipe.id}>
-                  {index > 0 ? <Box sx={{ borderTop: 1, borderColor: 'divider' }} /> : null}
-                  <ListItem
-                    alignItems="flex-start"
-                    disablePadding
-                    secondaryAction={
-                      <Stack direction="row" spacing={0.5}>
-                        <IconButton
-                          aria-label={t('grocery.addAria', { title: recipe.title })}
-                          onClick={() => setGroceryTarget(recipe)}
-                          disabled={deletingId !== null || !groceryCandidates(recipe).length}
-                          color="secondary"
-                        >
-                          <ShoppingCartIcon />
-                        </IconButton>
-                        <IconButton
-                          aria-label={t('recipes.editAria', { title: recipe.title })}
-                          onClick={() =>
-                            router.push(`/recipes/${encodeURIComponent(recipe.id)}/edit`)
-                          }
-                          disabled={deletingId !== null || !online}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          edge="end"
-                          aria-label={t('recipes.deleteAria', { title: recipe.title })}
-                          onClick={() => {
-                            setDeleteDialogError(null);
-                            setDeleteTarget(recipe);
-                          }}
-                          disabled={deletingId !== null || !online}
-                          color="error"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Stack>
+            <RecipeRows
+              recipes={filteredRecipes}
+              onOpen={(recipe) => router.push(`/recipes/${encodeURIComponent(recipe.id)}`)}
+              actionsSpacing={26}
+              renderActions={(recipe) => (
+                <>
+                  <IconButton
+                    aria-label={
+                      plannedIds.has(recipe.id)
+                        ? t('planned.removeAria', { title: recipe.title })
+                        : t('planned.addAria', { title: recipe.title })
                     }
+                    onClick={() => togglePlanned(recipe.id)}
+                    disabled={deletingId !== null || !online}
+                    color={plannedIds.has(recipe.id) ? 'primary' : 'default'}
                   >
-                    <ListItemButton
-                      alignItems="flex-start"
-                      onClick={() => router.push(`/recipes/${encodeURIComponent(recipe.id)}`)}
-                      sx={{ py: 2, px: 3, pr: 20 }}
-                    >
-                      <ListItemText
-                        primary={recipe.title}
-                        primaryTypographyProps={{ variant: 'h6', component: 'div' }}
-                        secondary={
-                          <>
-                            {recipe.description ? (
-                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                {recipe.description}
-                              </Typography>
-                            ) : null}
-                            {ingredientSummary ? (
-                              <Typography
-                                variant="caption"
-                                color="text.disabled"
-                                noWrap
-                                sx={{ display: 'block', mt: 0.5 }}
-                              >
-                                {ingredientSummary}
-                              </Typography>
-                            ) : null}
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              flexWrap="wrap"
-                              useFlexGap
-                              sx={{ mt: 1 }}
-                            >
-                              {recipe.prepTime != null ? (
-                                <Chip
-                                  size="small"
-                                  label={t('recipes.chip.prep', { minutes: recipe.prepTime })}
-                                />
-                              ) : null}
-                              {recipe.cookTime != null ? (
-                                <Chip
-                                  size="small"
-                                  label={t('recipes.chip.cook', { minutes: recipe.cookTime })}
-                                />
-                              ) : null}
-                              {recipe.servings != null ? (
-                                <Chip
-                                  size="small"
-                                  label={t('recipes.chip.servings', { count: recipe.servings })}
-                                />
-                              ) : null}
-                              {recipe.tags?.map((tag) => (
-                                <Chip key={tag} size="small" variant="outlined" label={tag} />
-                              ))}
-                            </Stack>
-                          </>
-                        }
-                        secondaryTypographyProps={{ component: 'div' }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
-                </Box>
-                );
-              })}
-            </List>
+                    {plannedIds.has(recipe.id) ? <BookmarkIcon /> : <BookmarkAddOutlinedIcon />}
+                  </IconButton>
+                  <IconButton
+                    aria-label={t('grocery.addAria', { title: recipe.title })}
+                    onClick={() => setGroceryTarget(recipe)}
+                    disabled={deletingId !== null || !groceryCandidates(recipe).length}
+                    color="secondary"
+                  >
+                    <ShoppingCartIcon />
+                  </IconButton>
+                  <IconButton
+                    aria-label={t('recipes.editAria', { title: recipe.title })}
+                    onClick={() => router.push(`/recipes/${encodeURIComponent(recipe.id)}/edit`)}
+                    disabled={deletingId !== null || !online}
+                  >
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton
+                    edge="end"
+                    aria-label={t('recipes.deleteAria', { title: recipe.title })}
+                    onClick={() => {
+                      setDeleteDialogError(null);
+                      setDeleteTarget(recipe);
+                    }}
+                    disabled={deletingId !== null || !online}
+                    color="error"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </>
+              )}
+            />
           </Paper>
         )}
       </Container>
