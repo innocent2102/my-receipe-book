@@ -27,6 +27,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { downloadRecipeExport, slugify } from '../../../lib/recipeExport';
+import { youTubeEmbedUrl } from '../../../lib/youtube';
 import { useTranslation } from '../../../i18n/LanguageProvider';
 
 type Ingredient = {
@@ -46,6 +47,7 @@ type RecipeDetail = {
   cookTime?: number;
   servings?: number;
   tags?: string[];
+  videoUrl?: string;
 };
 
 export default function RecipeDetailPage() {
@@ -115,6 +117,8 @@ export default function RecipeDetailPage() {
 
   const instructionSteps =
     recipe?.instructions?.filter((step) => step.trim() !== '') ?? [];
+
+  const videoEmbedUrl = recipe?.videoUrl ? youTubeEmbedUrl(recipe.videoUrl) : null;
 
   return (
     <>
@@ -214,6 +218,39 @@ export default function RecipeDetailPage() {
             </Stack>
 
             <Divider sx={{ mb: 3 }} />
+
+            {videoEmbedUrl ? (
+              <>
+                <Typography variant="h6" component="h2" gutterBottom>
+                  {t('detail.video')}
+                </Typography>
+                <Box
+                  sx={{
+                    position: 'relative',
+                    width: '100%',
+                    pt: '56.25%',
+                    mb: 3,
+                    borderRadius: 1,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Box
+                    component="iframe"
+                    src={videoEmbedUrl}
+                    title={t('detail.video')}
+                    allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    sx={{
+                      position: 'absolute',
+                      inset: 0,
+                      width: '100%',
+                      height: '100%',
+                      border: 0,
+                    }}
+                  />
+                </Box>
+              </>
+            ) : null}
 
             <Typography variant="h6" component="h2" gutterBottom>
               {t('detail.ingredients')}

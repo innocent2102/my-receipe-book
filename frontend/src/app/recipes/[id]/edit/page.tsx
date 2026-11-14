@@ -32,6 +32,7 @@ type RecipeDetail = {
   cookTime?: number;
   servings?: number;
   tags?: string[];
+  videoUrl?: string;
 };
 
 export default function EditRecipePage() {
@@ -88,6 +89,7 @@ export default function EditRecipePage() {
         cookTime: recipe.cookTime,
         servings: recipe.servings,
         tags: recipe.tags ?? [],
+        videoUrl: recipe.videoUrl,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : t('detail.loadError'));

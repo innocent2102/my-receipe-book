@@ -18,6 +18,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Ingredient, generateId } from '@my-receipe-book/shared';
 import { useTranslation } from '../i18n/LanguageProvider';
+import { isYouTubeUrl, youTubeEmbedUrl } from '../lib/youtube';
 
 interface InstructionItem {
   id: string;
@@ -33,6 +34,7 @@ export interface RecipeFormValues {
   cookTime?: number;
   servings?: number;
   tags?: string[];
+  videoUrl?: string;
 }
 
 interface RecipeFormProps {
@@ -68,9 +70,12 @@ export function RecipeForm({
     (initialValues?.instructions ?? []).map((text) => ({ id: generateId(), text }))
   );
   const [tags, setTags] = useState<string[]>(initialValues?.tags ?? []);
+  const [videoUrl, setVideoUrl] = useState(initialValues?.videoUrl ?? '');
   const [tagInput, setTagInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const videoEmbedUrl = youTubeEmbedUrl(videoUrl);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,6 +217,12 @@ export function RecipeForm({
       return;
     }
 
+    const trimmedVideoUrl = videoUrl.trim();
+    if (trimmedVideoUrl && !isYouTubeUrl(trimmedVideoUrl)) {
+      setError(t('add.videoUrlInvalid'));
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -224,6 +235,7 @@ export function RecipeForm({
         cookTime: cookTime ? Number(cookTime) : undefined,
         servings: servings ? Number(servings) : undefined,
         tags: tags.length > 0 ? tags : undefined,
+        videoUrl: trimmedVideoUrl || undefined,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('add.saveFailedGeneric'));
@@ -263,6 +275,50 @@ export function RecipeForm({
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t('add.descriptionPlaceholder')}
           />
+        </Grid>
+
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            type="url"
+            label={t('add.videoUrl')}
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
+            placeholder={t('add.videoUrlPlaceholder')}
+            error={videoUrl.trim() !== '' && !isYouTubeUrl(videoUrl)}
+            helperText={
+              videoUrl.trim() !== '' && !isYouTubeUrl(videoUrl)
+                ? t('add.videoUrlInvalid')
+                : t('add.videoUrlHelp')
+            }
+          />
+          {videoEmbedUrl ? (
+            <Box
+              sx={{
+                position: 'relative',
+                width: '100%',
+                pt: '56.25%',
+                mt: 2,
+                borderRadius: 1,
+                overflow: 'hidden',
+              }}
+            >
+              <Box
+                component="iframe"
+                src={videoEmbedUrl}
+                title={t('add.videoPreview')}
+                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  border: 0,
+                }}
+              />
+            </Box>
+          ) : null}
         </Grid>
 
         <Grid item xs={12} sm={4}>

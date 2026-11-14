@@ -18,6 +18,7 @@ export type ExportRecipe = {
   cookTime?: number;
   servings?: number;
   tags?: string[];
+  videoUrl?: string;
 };
 
 export type RecipeExportFile = {
@@ -36,6 +37,7 @@ type SourceRecipe = {
   cookTime?: number;
   servings?: number;
   tags?: string[];
+  videoUrl?: string;
 };
 
 /** Strips ids/ownership/timestamps so the file is portable across accounts. */
@@ -53,6 +55,7 @@ export function toExportRecipe(recipe: SourceRecipe): ExportRecipe {
     ...(recipe.cookTime != null ? { cookTime: recipe.cookTime } : {}),
     ...(recipe.servings != null ? { servings: recipe.servings } : {}),
     ...(recipe.tags && recipe.tags.length > 0 ? { tags: recipe.tags } : {}),
+    ...(recipe.videoUrl ? { videoUrl: recipe.videoUrl } : {}),
   };
 }
 

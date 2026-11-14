@@ -18,6 +18,7 @@ type RecipeRow = {
   cook_time: number | null;
   servings: number | null;
   tags: string | null;
+  video_url: string | null;
   user_id: string | null;
   created_at: string;
   updated_at: string;
@@ -57,6 +58,7 @@ export type RecipeInput = {
   cookTime?: unknown;
   servings?: unknown;
   tags?: unknown;
+  videoUrl?: unknown;
 };
 
 type NormalizedRecipe = {
@@ -66,9 +68,35 @@ type NormalizedRecipe = {
   cookTime: number | null;
   servings: number | null;
   tags: string | null;
+  videoUrl: string | null;
   ingredients: { name: string; amount: number; unit: string }[];
   instructions: string[];
 };
+
+/** Accepts only YouTube links so the detail page can safely embed them. */
+function normalizeVideoUrl(value: unknown): string | null {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null;
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+
+  const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
+  const isYouTube =
+    host === 'youtube.com' ||
+    host === 'm.youtube.com' ||
+    host === 'music.youtube.com' ||
+    host === 'youtube-nocookie.com' ||
+    host === 'youtu.be';
+
+  return isYouTube ? raw : null;
+}
 
 function toOptionalNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -115,6 +143,7 @@ function normalizeRecipeInput(raw: RecipeInput): NormalizedRecipe | null {
     cookTime: toOptionalNumber(raw.cookTime),
     servings: toOptionalNumber(raw.servings),
     tags: tags.length > 0 ? JSON.stringify(tags) : null,
+    videoUrl: normalizeVideoUrl(raw.videoUrl),
     ingredients,
     instructions,
   };
@@ -123,8 +152,8 @@ function normalizeRecipeInput(raw: RecipeInput): NormalizedRecipe | null {
 function recipeInsertStatements(db: Database) {
   return {
     recipe: db.prepare(`
-      INSERT INTO recipes (id, title, description, prep_time, cook_time, servings, tags, user_id, created_at, updated_at)
-      VALUES (@id, @title, @description, @prep_time, @cook_time, @servings, @tags, @user_id, @created_at, @updated_at)
+      INSERT INTO recipes (id, title, description, prep_time, cook_time, servings, tags, video_url, user_id, created_at, updated_at)
+      VALUES (@id, @title, @description, @prep_time, @cook_time, @servings, @tags, @video_url, @user_id, @created_at, @updated_at)
     `),
     ingredient: db.prepare(`
       INSERT INTO ingredients (id, recipe_id, name, amount, unit)
@@ -155,6 +184,7 @@ function insertRecipe(
     cook_time: recipe.cookTime,
     servings: recipe.servings,
     tags: recipe.tags,
+    video_url: recipe.videoUrl,
     user_id: userId,
     created_at: now,
     updated_at: now,
@@ -200,6 +230,7 @@ function updateRecipe(
          cook_time = @cook_time,
          servings = @servings,
          tags = @tags,
+         video_url = @video_url,
          user_id = @user_id,
          updated_at = @updated_at
      WHERE id = @id`
@@ -211,6 +242,7 @@ function updateRecipe(
     cook_time: recipe.cookTime,
     servings: recipe.servings,
     tags: recipe.tags,
+    video_url: recipe.videoUrl,
     // Claims ownership of legacy rows that had no user_id.
     user_id: userId,
     updated_at: new Date().toISOString(),
@@ -270,6 +302,7 @@ function loadRecipeDetail(db: Database, recipeId: string) {
     cookTime: row.cook_time ?? undefined,
     servings: row.servings ?? undefined,
     tags: parseTags(row.tags),
+    videoUrl: row.video_url ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -354,6 +387,7 @@ router.get('/', (req, res) => {
       cookTime: r.cook_time ?? undefined,
       servings: r.servings ?? undefined,
       tags: parseTags(r.tags),
+      videoUrl: r.video_url ?? undefined,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     };
