@@ -114,10 +114,18 @@ export async function initDatabase() {
       CREATE TABLE IF NOT EXISTS grocery_lists (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        user_id TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
     `);
+
+    const groceryListColumns = db
+      .prepare(`PRAGMA table_info(grocery_lists)`)
+      .all() as { name: string }[];
+    if (!groceryListColumns.some((c) => c.name === 'user_id')) {
+      db.exec(`ALTER TABLE grocery_lists ADD COLUMN user_id TEXT`);
+    }
 
     // Create grocery_items table
     db.exec(`
@@ -129,10 +137,18 @@ export async function initDatabase() {
         unit TEXT NOT NULL,
         checked INTEGER DEFAULT 0,
         recipe_id TEXT,
+        created_at TEXT,
         FOREIGN KEY (grocery_list_id) REFERENCES grocery_lists(id) ON DELETE CASCADE,
         FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE SET NULL
       )
     `);
+
+    const groceryItemColumns = db
+      .prepare(`PRAGMA table_info(grocery_items)`)
+      .all() as { name: string }[];
+    if (!groceryItemColumns.some((c) => c.name === 'created_at')) {
+      db.exec(`ALTER TABLE grocery_items ADD COLUMN created_at TEXT`);
+    }
 
     // Create meal_plans table
     db.exec(`

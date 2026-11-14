@@ -16,10 +16,13 @@ import {
   Chip,
   Stack,
   Divider,
+  Snackbar,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
 import EditIcon from '@mui/icons-material/Edit';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import { AddToGroceryDialog } from '../../../components/AddToGroceryDialog';
 import { ThemeToggle } from '../../../components/ThemeToggle';
 import { LanguageToggle } from '../../../components/LanguageToggle';
 import { UserMenu } from '../../../components/UserMenu';
@@ -55,10 +58,12 @@ export default function RecipeDetailPage() {
   const params = useParams<{ id: string }>();
   const recipeId = Array.isArray(params?.id) ? params.id[0] : params?.id;
   const { status } = useSession();
-  const { t } = useTranslation();
+  const { t, tPlural } = useTranslation();
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [groceryOpen, setGroceryOpen] = useState(false);
+  const [groceryAdded, setGroceryAdded] = useState<number | null>(null);
 
   const callbackUrl = recipeId ? `/recipes/${encodeURIComponent(recipeId)}` : '/recipes';
 
@@ -120,6 +125,10 @@ export default function RecipeDetailPage() {
 
   const videoEmbedUrl = recipe?.videoUrl ? youTubeEmbedUrl(recipe.videoUrl) : null;
 
+  const groceryCandidates = (recipe?.ingredients ?? []).filter(
+    (ingredient) => ingredient.name.trim() !== ''
+  );
+
   return (
     <>
       <AppBar position="static">
@@ -147,6 +156,15 @@ export default function RecipeDetailPage() {
             {t('detail.back')}
           </Button>
           <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="contained"
+              color="secondary"
+              startIcon={<ShoppingCartIcon />}
+              onClick={() => setGroceryOpen(true)}
+              disabled={!groceryCandidates.length}
+            >
+              {t('grocery.addToList')}
+            </Button>
             <Button
               variant="contained"
               startIcon={<EditIcon />}
@@ -291,6 +309,33 @@ export default function RecipeDetailPage() {
           </Paper>
         ) : null}
       </Container>
+
+      <AddToGroceryDialog
+        open={groceryOpen}
+        recipeId={recipe?.id}
+        ingredients={groceryCandidates}
+        onClose={() => setGroceryOpen(false)}
+        onAdded={(count) => setGroceryAdded(count)}
+      />
+
+      <Snackbar
+        open={groceryAdded !== null}
+        autoHideDuration={5000}
+        onClose={() => setGroceryAdded(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity="success"
+          onClose={() => setGroceryAdded(null)}
+          action={
+            <Button color="inherit" size="small" onClick={() => router.push('/grocery')}>
+              {t('grocery.viewList')}
+            </Button>
+          }
+        >
+          {tPlural('grocery.added', groceryAdded ?? 0, { count: groceryAdded ?? 0 })}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

@@ -24,6 +24,7 @@ import {
   DialogActions,
   TextField,
   InputAdornment,
+  Snackbar,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -32,6 +33,11 @@ import DownloadIcon from '@mui/icons-material/Download';
 import UploadIcon from '@mui/icons-material/Upload';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import {
+  AddToGroceryDialog,
+  type GroceryCandidate,
+} from '../../components/AddToGroceryDialog';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { LanguageToggle } from '../../components/LanguageToggle';
 import { UserMenu } from '../../components/UserMenu';
@@ -60,6 +66,17 @@ const ingredientNames = (recipe: RecipeListItem) =>
     .filter((name): name is string => Boolean(name))
     .join(', ');
 
+/** Named ingredients of a recipe, shaped for the shopping-list dialog. */
+const groceryCandidates = (recipe: RecipeListItem): GroceryCandidate[] =>
+  (recipe.ingredients ?? [])
+    .map((ing, index) => ({
+      id: `${recipe.id}-${index}`,
+      name: ing.name?.trim() ?? '',
+      amount: ing.amount ?? 0,
+      unit: ing.unit?.trim() ?? '',
+    }))
+    .filter((ing) => ing.name !== '');
+
 /** Everything a search term may match: title, description, ingredients and tags. */
 const searchHaystack = (recipe: RecipeListItem) =>
   [
@@ -85,6 +102,8 @@ export default function RecipesPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [groceryTarget, setGroceryTarget] = useState<RecipeListItem | null>(null);
+  const [groceryAdded, setGroceryAdded] = useState<number | null>(null);
 
   /** All whitespace-separated terms must match, so extra words narrow the list. */
   const filteredRecipes = useMemo(() => {
@@ -232,6 +251,13 @@ export default function RecipesPage() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             {t('recipes.title')}
           </Typography>
+          <IconButton
+            color="inherit"
+            aria-label={t('grocery.openAria')}
+            onClick={() => router.push('/grocery')}
+          >
+            <ShoppingCartIcon />
+          </IconButton>
           <LanguageToggle />
           <ThemeToggle />
           <UserMenu />
@@ -401,6 +427,14 @@ export default function RecipesPage() {
                     secondaryAction={
                       <Stack direction="row" spacing={0.5}>
                         <IconButton
+                          aria-label={t('grocery.addAria', { title: recipe.title })}
+                          onClick={() => setGroceryTarget(recipe)}
+                          disabled={deletingId !== null || !groceryCandidates(recipe).length}
+                          color="secondary"
+                        >
+                          <ShoppingCartIcon />
+                        </IconButton>
+                        <IconButton
                           aria-label={t('recipes.editAria', { title: recipe.title })}
                           onClick={() =>
                             router.push(`/recipes/${encodeURIComponent(recipe.id)}/edit`)
@@ -427,7 +461,7 @@ export default function RecipesPage() {
                     <ListItemButton
                       alignItems="flex-start"
                       onClick={() => router.push(`/recipes/${encodeURIComponent(recipe.id)}`)}
-                      sx={{ py: 2, px: 3, pr: 14 }}
+                      sx={{ py: 2, px: 3, pr: 20 }}
                     >
                       <ListItemText
                         primary={recipe.title}
@@ -532,6 +566,33 @@ export default function RecipesPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <AddToGroceryDialog
+        open={Boolean(groceryTarget)}
+        recipeId={groceryTarget?.id}
+        ingredients={groceryTarget ? groceryCandidates(groceryTarget) : []}
+        onClose={() => setGroceryTarget(null)}
+        onAdded={(count) => setGroceryAdded(count)}
+      />
+
+      <Snackbar
+        open={groceryAdded !== null}
+        autoHideDuration={5000}
+        onClose={() => setGroceryAdded(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity="success"
+          onClose={() => setGroceryAdded(null)}
+          action={
+            <Button color="inherit" size="small" onClick={() => router.push('/grocery')}>
+              {t('grocery.viewList')}
+            </Button>
+          }
+        >
+          {tPlural('grocery.added', groceryAdded ?? 0, { count: groceryAdded ?? 0 })}
+        </Alert>
+      </Snackbar>
     </>
   );
 }
