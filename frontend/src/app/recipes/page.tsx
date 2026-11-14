@@ -25,6 +25,7 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import DownloadIcon from '@mui/icons-material/Download';
 import UploadIcon from '@mui/icons-material/Upload';
 import { ThemeToggle } from '../../components/ThemeToggle';
@@ -313,24 +314,35 @@ export default function RecipesPage() {
                     alignItems="flex-start"
                     disablePadding
                     secondaryAction={
-                      <IconButton
-                        edge="end"
-                        aria-label={t('recipes.deleteAria', { title: recipe.title })}
-                        onClick={() => {
-                          setDeleteDialogError(null);
-                          setDeleteTarget(recipe);
-                        }}
-                        disabled={deletingId !== null}
-                        color="error"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                      <Stack direction="row" spacing={0.5}>
+                        <IconButton
+                          aria-label={t('recipes.editAria', { title: recipe.title })}
+                          onClick={() =>
+                            router.push(`/recipes/${encodeURIComponent(recipe.id)}/edit`)
+                          }
+                          disabled={deletingId !== null}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          edge="end"
+                          aria-label={t('recipes.deleteAria', { title: recipe.title })}
+                          onClick={() => {
+                            setDeleteDialogError(null);
+                            setDeleteTarget(recipe);
+                          }}
+                          disabled={deletingId !== null}
+                          color="error"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Stack>
                     }
                   >
                     <ListItemButton
                       alignItems="flex-start"
                       onClick={() => router.push(`/recipes/${encodeURIComponent(recipe.id)}`)}
-                      sx={{ py: 2, px: 3, pr: 9 }}
+                      sx={{ py: 2, px: 3, pr: 14 }}
                     >
                       <ListItemText
                         primary={recipe.title}

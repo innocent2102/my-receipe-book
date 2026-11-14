@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
+import EditIcon from '@mui/icons-material/Edit';
 import { ThemeToggle } from '../../../components/ThemeToggle';
 import { LanguageToggle } from '../../../components/LanguageToggle';
 import { UserMenu } from '../../../components/UserMenu';
@@ -141,16 +142,28 @@ export default function RecipeDetailPage() {
           <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/recipes')}>
             {t('detail.back')}
           </Button>
-          <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={() => {
-              if (recipe) downloadRecipeExport([recipe], slugify(recipe.title));
-            }}
-            disabled={!recipe}
-          >
-            {t('common.export')}
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="contained"
+              startIcon={<EditIcon />}
+              onClick={() => {
+                if (recipe) router.push(`/recipes/${encodeURIComponent(recipe.id)}/edit`);
+              }}
+              disabled={!recipe}
+            >
+              {t('common.edit')}
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={() => {
+                if (recipe) downloadRecipeExport([recipe], slugify(recipe.title));
+              }}
+              disabled={!recipe}
+            >
+              {t('common.export')}
+            </Button>
+          </Box>
         </Box>
 
         {error && (

@@ -14,6 +14,7 @@ const en = {
   'common.delete': 'Delete',
   'common.deleting': 'Deleting…',
   'common.add': 'Add',
+  'common.edit': 'Edit',
   'common.export': 'Export',
   'common.import': 'Import',
   'common.importing': 'Importing…',
@@ -57,6 +58,7 @@ const en = {
   'recipes.loadErrorHelp':
     'Ensure the backend is running and BACKEND_URL in frontend/.env.local matches it (default http://localhost:3001). If you set RECIPES_PROXY_SECRET on the backend, use the same value in frontend/.env.local.',
   'recipes.deleteAria': 'Delete {title}',
+  'recipes.editAria': 'Edit {title}',
   'recipes.delete.title': 'Delete recipe?',
   'recipes.delete.body': 'This will permanently remove “{title}” and cannot be undone.',
   'recipes.delete.notFound': 'Recipe not found or you no longer have access.',
@@ -112,6 +114,11 @@ const en = {
   'add.titleRequired': 'Recipe title is required',
   'add.saveFailedStatus': 'Failed to save recipe ({status})',
   'add.saveFailedGeneric': 'Failed to save recipe. Please try again.',
+  'edit.appBarTitle': 'Edit Recipe',
+  'edit.heading': 'Edit Recipe',
+  'edit.save': 'Save Changes',
+  'edit.saving': 'Saving…',
+  'edit.saveFailedStatus': 'Failed to update recipe ({status})',
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -122,6 +129,7 @@ const pl: Record<TranslationKey, string> = {
   'common.delete': 'Usuń',
   'common.deleting': 'Usuwanie…',
   'common.add': 'Dodaj',
+  'common.edit': 'Edytuj',
   'common.export': 'Eksportuj',
   'common.import': 'Importuj',
   'common.importing': 'Importowanie…',
@@ -165,6 +173,7 @@ const pl: Record<TranslationKey, string> = {
   'recipes.loadErrorHelp':
     'Upewnij się, że backend działa, a BACKEND_URL w frontend/.env.local wskazuje na niego (domyślnie http://localhost:3001). Jeśli ustawiono RECIPES_PROXY_SECRET w backendzie, użyj tej samej wartości w frontend/.env.local.',
   'recipes.deleteAria': 'Usuń {title}',
+  'recipes.editAria': 'Edytuj {title}',
   'recipes.delete.title': 'Usunąć przepis?',
   'recipes.delete.body':
     'Przepis „{title}” zostanie trwale usunięty. Tej operacji nie można cofnąć.',
@@ -221,6 +230,11 @@ const pl: Record<TranslationKey, string> = {
   'add.titleRequired': 'Tytuł przepisu jest wymagany',
   'add.saveFailedStatus': 'Nie udało się zapisać przepisu ({status})',
   'add.saveFailedGeneric': 'Nie udało się zapisać przepisu. Spróbuj ponownie.',
+  'edit.appBarTitle': 'Edytuj przepis',
+  'edit.heading': 'Edytuj przepis',
+  'edit.save': 'Zapisz zmiany',
+  'edit.saving': 'Zapisywanie…',
+  'edit.saveFailedStatus': 'Nie udało się zaktualizować przepisu ({status})',
 };
 
 export const dictionaries: Record<Locale, Record<TranslationKey, string>> = { en, pl };

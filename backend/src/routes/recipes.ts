@@ -184,6 +184,109 @@ function insertRecipe(
   return recipeId;
 }
 
+/** Replaces a recipe's fields and its ingredient/instruction rows. */
+function updateRecipe(
+  db: Database,
+  statements: ReturnType<typeof recipeInsertStatements>,
+  userId: string,
+  recipeId: string,
+  recipe: NormalizedRecipe
+): void {
+  db.prepare(
+    `UPDATE recipes
+     SET title = @title,
+         description = @description,
+         prep_time = @prep_time,
+         cook_time = @cook_time,
+         servings = @servings,
+         tags = @tags,
+         user_id = @user_id,
+         updated_at = @updated_at
+     WHERE id = @id`
+  ).run({
+    id: recipeId,
+    title: recipe.title,
+    description: recipe.description,
+    prep_time: recipe.prepTime,
+    cook_time: recipe.cookTime,
+    servings: recipe.servings,
+    tags: recipe.tags,
+    // Claims ownership of legacy rows that had no user_id.
+    user_id: userId,
+    updated_at: new Date().toISOString(),
+  });
+
+  db.prepare('DELETE FROM ingredients WHERE recipe_id = ?').run(recipeId);
+  db.prepare('DELETE FROM instructions WHERE recipe_id = ?').run(recipeId);
+
+  for (const ing of recipe.ingredients) {
+    statements.ingredient.run({
+      id: generateRecipeId(),
+      recipe_id: recipeId,
+      name: ing.name,
+      amount: ing.amount,
+      unit: ing.unit,
+    });
+  }
+
+  recipe.instructions.forEach((text, index) => {
+    statements.instruction.run({
+      id: generateRecipeId(),
+      recipe_id: recipeId,
+      step_number: index + 1,
+      instruction: text,
+    });
+  });
+
+  rememberIngredientNames(db, userId, recipe.ingredients.map((ing) => ing.name));
+}
+
+/** Builds the API shape for a single recipe, including its ingredients and steps. */
+function loadRecipeDetail(db: Database, recipeId: string) {
+  const row = db.prepare('SELECT * FROM recipes WHERE id = ?').get(recipeId) as
+    | RecipeRow
+    | undefined;
+  if (!row) return null;
+
+  const ingRows = db
+    .prepare('SELECT * FROM ingredients WHERE recipe_id = ?')
+    .all(recipeId) as IngredientRow[];
+  const instRows = db
+    .prepare('SELECT * FROM instructions WHERE recipe_id = ? ORDER BY step_number')
+    .all(recipeId) as InstructionRow[];
+
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description ?? undefined,
+    ingredients: ingRows.map((ing) => ({
+      id: ing.id,
+      name: ing.name,
+      amount: ing.amount,
+      unit: ing.unit,
+    })),
+    instructions: instRows.map((i) => i.instruction),
+    prepTime: row.prep_time ?? undefined,
+    cookTime: row.cook_time ?? undefined,
+    servings: row.servings ?? undefined,
+    tags: parseTags(row.tags),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+/** Returns the recipe id if it exists and the user may modify it, otherwise null. */
+function findOwnedRecipeId(db: Database, id: string, userId: string): string | null {
+  const row = db
+    .prepare(
+      `SELECT id FROM recipes
+       WHERE id = ?
+         AND (user_id = ? OR user_id IS NULL OR user_id = '')`
+    )
+    .get(id, userId) as { id: string } | undefined;
+  return row?.id ?? null;
+}
+
 router.get('/', (req, res) => {
   if (!isDbAvailable()) {
     return res.status(503).json({ success: false, error: 'Database unavailable' });
@@ -274,46 +377,12 @@ router.get('/:id', (req, res) => {
 
   const db = getDatabase() as Database;
   // Include legacy rows (NULL / empty user_id) so older DBs stay readable.
-  const row = db
-    .prepare(
-      `SELECT * FROM recipes
-       WHERE id = ?
-         AND (user_id = ? OR user_id IS NULL OR user_id = '')`
-    )
-    .get(id, userId) as RecipeRow | undefined;
-
-  if (!row) {
+  const ownedId = findOwnedRecipeId(db, id, userId);
+  if (!ownedId) {
     return res.status(404).json({ success: false, error: 'Recipe not found' });
   }
 
-  const ingRows = db
-    .prepare('SELECT * FROM ingredients WHERE recipe_id = ?')
-    .all(row.id) as IngredientRow[];
-  const instRows = db
-    .prepare('SELECT * FROM instructions WHERE recipe_id = ? ORDER BY step_number')
-    .all(row.id) as InstructionRow[];
-
-  return res.json({
-    success: true,
-    data: {
-      id: row.id,
-      title: row.title,
-      description: row.description ?? undefined,
-      ingredients: ingRows.map((ing) => ({
-        id: ing.id,
-        name: ing.name,
-        amount: ing.amount,
-        unit: ing.unit,
-      })),
-      instructions: instRows.map((i) => i.instruction),
-      prepTime: row.prep_time ?? undefined,
-      cookTime: row.cook_time ?? undefined,
-      servings: row.servings ?? undefined,
-      tags: parseTags(row.tags),
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    },
-  });
+  return res.json({ success: true, data: loadRecipeDetail(db, ownedId) });
 });
 
 router.post('/', (req, res) => {
@@ -341,35 +410,7 @@ router.post('/', (req, res) => {
     return res.status(500).json({ success: false, error: 'Failed to save recipe' });
   }
 
-  const row = db.prepare('SELECT * FROM recipes WHERE id = ?').get(recipeId) as RecipeRow;
-  const ingRows = db
-    .prepare('SELECT * FROM ingredients WHERE recipe_id = ?')
-    .all(recipeId) as IngredientRow[];
-  const instRows = db
-    .prepare('SELECT * FROM instructions WHERE recipe_id = ? ORDER BY step_number')
-    .all(recipeId) as InstructionRow[];
-
-  return res.status(201).json({
-    success: true,
-    data: {
-      id: row.id,
-      title: row.title,
-      description: row.description ?? undefined,
-      ingredients: ingRows.map((ing) => ({
-        id: ing.id,
-        name: ing.name,
-        amount: ing.amount,
-        unit: ing.unit,
-      })),
-      instructions: instRows.map((i) => i.instruction),
-      prepTime: row.prep_time ?? undefined,
-      cookTime: row.cook_time ?? undefined,
-      servings: row.servings ?? undefined,
-      tags: parseTags(row.tags),
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    },
-  });
+  return res.status(201).json({ success: true, data: loadRecipeDetail(db, recipeId) });
 });
 
 const MAX_IMPORT_RECIPES = 500;
@@ -446,6 +487,42 @@ router.post('/import', (req, res) => {
     success: true,
     data: { imported: normalized.length, skipped },
   });
+});
+
+router.put('/:id', (req, res) => {
+  if (!isDbAvailable()) {
+    return res.status(503).json({ success: false, error: 'Database unavailable' });
+  }
+
+  const userId = requireRecipeUser(req, res);
+  if (!userId) return;
+
+  const id = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+  if (!id) {
+    return res.status(400).json({ success: false, error: 'Invalid recipe id' });
+  }
+
+  const normalized = normalizeRecipeInput(req.body as RecipeInput);
+  if (!normalized) {
+    return res.status(400).json({ success: false, error: 'Title is required' });
+  }
+
+  const db = getDatabase() as Database;
+  const ownedId = findOwnedRecipeId(db, id, userId);
+  if (!ownedId) {
+    return res.status(404).json({ success: false, error: 'Recipe not found' });
+  }
+
+  const statements = recipeInsertStatements(db);
+
+  try {
+    db.transaction(() => updateRecipe(db, statements, userId, ownedId, normalized))();
+  } catch (e) {
+    console.error('Failed to update recipe:', e);
+    return res.status(500).json({ success: false, error: 'Failed to update recipe' });
+  }
+
+  return res.json({ success: true, data: loadRecipeDetail(db, ownedId) });
 });
 
 router.delete('/:id', (req, res) => {
