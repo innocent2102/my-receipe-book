@@ -23,8 +23,10 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { ThemeToggle } from '../../../components/ThemeToggle';
+import { LanguageToggle } from '../../../components/LanguageToggle';
 import { UserMenu } from '../../../components/UserMenu';
 import { Ingredient, generateId } from '@my-receipe-book/shared';
+import { useTranslation } from '../../../i18n/LanguageProvider';
 
 interface InstructionItem {
   id: string;
@@ -34,6 +36,7 @@ interface InstructionItem {
 export default function AddRecipePage() {
   const router = useRouter();
   const { status } = useSession();
+  const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [prepTime, setPrepTime] = useState<number | ''>('');
@@ -109,7 +112,7 @@ export default function AddRecipePage() {
 
   const validateForm = (): boolean => {
     if (!title.trim()) {
-      setError('Recipe title is required');
+      setError(t('add.titleRequired'));
       return false;
     }
     return true;
@@ -154,12 +157,12 @@ export default function AddRecipePage() {
       }
 
       if (!res.ok || !json.success) {
-        throw new Error(json.error || `Failed to save recipe (${res.status})`);
+        throw new Error(json.error || t('add.saveFailedStatus', { status: res.status }));
       }
 
       router.push('/recipes');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save recipe. Please try again.');
+      setError(err instanceof Error ? err.message : t('add.saveFailedGeneric'));
       console.error('Error saving recipe:', err);
     } finally {
       setIsSubmitting(false);
@@ -191,8 +194,9 @@ export default function AddRecipePage() {
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Add New Recipe
+            {t('add.appBarTitle')}
           </Typography>
+          <LanguageToggle />
           <ThemeToggle />
           <UserMenu />
         </Toolbar>
@@ -201,7 +205,7 @@ export default function AddRecipePage() {
       <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
         <Paper elevation={3} sx={{ p: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
-            Create New Recipe
+            {t('add.heading')}
           </Typography>
 
           <form onSubmit={handleSubmit}>
@@ -216,7 +220,7 @@ export default function AddRecipePage() {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Recipe Title *"
+                  label={t('add.titleLabel')}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
@@ -228,10 +232,10 @@ export default function AddRecipePage() {
                   fullWidth
                   multiline
                   rows={3}
-                  label="Description"
+                  label={t('add.descriptionLabel')}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe your recipe..."
+                  placeholder={t('add.descriptionPlaceholder')}
                 />
               </Grid>
 
@@ -239,7 +243,7 @@ export default function AddRecipePage() {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Prep Time (minutes)"
+                  label={t('add.prepTime')}
                   value={prepTime}
                   onChange={(e) => setPrepTime(e.target.value ? Number(e.target.value) : '')}
                 />
@@ -249,7 +253,7 @@ export default function AddRecipePage() {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Cook Time (minutes)"
+                  label={t('add.cookTime')}
                   value={cookTime}
                   onChange={(e) => setCookTime(e.target.value ? Number(e.target.value) : '')}
                 />
@@ -259,7 +263,7 @@ export default function AddRecipePage() {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Servings"
+                  label={t('add.servings')}
                   value={servings}
                   onChange={(e) => setServings(e.target.value ? Number(e.target.value) : '')}
                 />
@@ -268,14 +272,14 @@ export default function AddRecipePage() {
               {/* Ingredients */}
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">Ingredients</Typography>
+                  <Typography variant="h6">{t('add.ingredients')}</Typography>
                   <Button
                     startIcon={<AddIcon />}
                     onClick={addIngredient}
                     variant="outlined"
                     size="small"
                   >
-                    Add Ingredient
+                    {t('add.addIngredient')}
                   </Button>
                 </Box>
 
@@ -294,7 +298,7 @@ export default function AddRecipePage() {
                       }}
                     >
                       <TextField
-                        label="Amount"
+                        label={t('add.amount')}
                         type="number"
                         value={ingredient.amount || ''}
                         onChange={(e) =>
@@ -304,14 +308,14 @@ export default function AddRecipePage() {
                         inputProps={{ step: 0.1 }}
                       />
                       <TextField
-                        label="Unit"
+                        label={t('add.unit')}
                         value={ingredient.unit}
                         onChange={(e) => updateIngredient(ingredient.id, 'unit', e.target.value)}
                         sx={{ flex: 1 }}
-                        placeholder="e.g., cups, tbsp, g"
+                        placeholder={t('add.unitPlaceholder')}
                       />
                       <TextField
-                        label="Ingredient Name"
+                        label={t('add.ingredientName')}
                         value={ingredient.name}
                         onChange={(e) => updateIngredient(ingredient.id, 'name', e.target.value)}
                         sx={{ flex: 2 }}
@@ -331,14 +335,14 @@ export default function AddRecipePage() {
               {/* Instructions */}
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">Instructions</Typography>
+                  <Typography variant="h6">{t('add.instructions')}</Typography>
                   <Button
                     startIcon={<AddIcon />}
                     onClick={addInstruction}
                     variant="outlined"
                     size="small"
                   >
-                    Add Step
+                    {t('add.addStep')}
                   </Button>
                 </Box>
 
@@ -374,7 +378,7 @@ export default function AddRecipePage() {
                         rows={2}
                         value={instruction.text}
                         onChange={(e) => updateInstruction(instruction.id, e.target.value)}
-                        placeholder={`Step ${index + 1}...`}
+                        placeholder={t('add.stepPlaceholder', { number: index + 1 })}
                       />
                       <IconButton
                         color="error"
@@ -391,7 +395,7 @@ export default function AddRecipePage() {
               {/* Tags */}
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom>
-                  Tags
+                  {t('add.tags')}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
                   {tags.map((tag) => (
@@ -408,7 +412,7 @@ export default function AddRecipePage() {
                   <TextField
                     fullWidth
                     size="small"
-                    label="Add Tag"
+                    label={t('add.addTagLabel')}
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyPress={(e) => {
@@ -417,14 +421,14 @@ export default function AddRecipePage() {
                         handleAddTag();
                       }
                     }}
-                    placeholder="e.g., vegetarian, quick, dessert"
+                    placeholder={t('add.tagPlaceholder')}
                   />
                   <Button
                     variant="outlined"
                     onClick={handleAddTag}
                     disabled={!tagInput.trim()}
                   >
-                    Add
+                    {t('common.add')}
                   </Button>
                 </Box>
               </Grid>
@@ -437,7 +441,7 @@ export default function AddRecipePage() {
                     onClick={() => router.back()}
                     disabled={isSubmitting}
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                   <Button
                     type="submit"
@@ -445,7 +449,7 @@ export default function AddRecipePage() {
                     disabled={isSubmitting}
                     size="large"
                   >
-                    {isSubmitting ? 'Saving...' : 'Save Recipe'}
+                    {isSubmitting ? t('add.saving') : t('add.save')}
                   </Button>
                 </Box>
               </Grid>

@@ -20,11 +20,13 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
 import { ThemeToggle } from '../../../components/ThemeToggle';
+import { LanguageToggle } from '../../../components/LanguageToggle';
 import { UserMenu } from '../../../components/UserMenu';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { downloadRecipeExport, slugify } from '../../../lib/recipeExport';
+import { useTranslation } from '../../../i18n/LanguageProvider';
 
 type Ingredient = {
   id: string;
@@ -50,6 +52,7 @@ export default function RecipeDetailPage() {
   const params = useParams<{ id: string }>();
   const recipeId = Array.isArray(params?.id) ? params.id[0] : params?.id;
   const { status } = useSession();
+  const { t } = useTranslation();
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,19 +81,19 @@ export default function RecipeDetailPage() {
         return;
       }
       if (res.status === 404) {
-        throw new Error('Recipe not found or you no longer have access.');
+        throw new Error(t('detail.notFound'));
       }
       if (!res.ok || !json.success || !json.data) {
-        throw new Error(json.error || 'Could not load this recipe');
+        throw new Error(json.error || t('detail.loadError'));
       }
       setRecipe(json.data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load this recipe');
+      setError(e instanceof Error ? e.message : t('detail.loadError'));
       setRecipe(null);
     } finally {
       setLoading(false);
     }
-  }, [recipeId, router, callbackUrl]);
+  }, [recipeId, router, callbackUrl, t]);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -114,8 +117,9 @@ export default function RecipeDetailPage() {
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Recipe
+            {t('detail.title')}
           </Typography>
+          <LanguageToggle />
           <ThemeToggle />
           <UserMenu />
         </Toolbar>
@@ -132,7 +136,7 @@ export default function RecipeDetailPage() {
           }}
         >
           <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/recipes')}>
-            Back to recipes
+            {t('detail.back')}
           </Button>
           <Button
             variant="outlined"
@@ -142,7 +146,7 @@ export default function RecipeDetailPage() {
             }}
             disabled={!recipe}
           >
-            Export
+            {t('common.export')}
           </Button>
         </Box>
 
@@ -170,16 +174,23 @@ export default function RecipeDetailPage() {
 
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 3 }}>
               {recipe.prepTime != null ? (
-                <Chip size="small" label={`Prep: ${recipe.prepTime} min`} />
+                <Chip size="small" label={t('recipes.chip.prep', { minutes: recipe.prepTime })} />
               ) : null}
               {recipe.cookTime != null ? (
-                <Chip size="small" label={`Cook: ${recipe.cookTime} min`} />
+                <Chip size="small" label={t('recipes.chip.cook', { minutes: recipe.cookTime })} />
               ) : null}
               {totalTime != null ? (
-                <Chip size="small" color="primary" label={`Total: ${totalTime} min`} />
+                <Chip
+                  size="small"
+                  color="primary"
+                  label={t('recipes.chip.total', { minutes: totalTime })}
+                />
               ) : null}
               {recipe.servings != null ? (
-                <Chip size="small" label={`Servings: ${recipe.servings}`} />
+                <Chip
+                  size="small"
+                  label={t('recipes.chip.servings', { count: recipe.servings })}
+                />
               ) : null}
               {recipe.tags?.map((tag) => (
                 <Chip key={tag} size="small" variant="outlined" label={tag} />
@@ -189,7 +200,7 @@ export default function RecipeDetailPage() {
             <Divider sx={{ mb: 3 }} />
 
             <Typography variant="h6" component="h2" gutterBottom>
-              Ingredients
+              {t('detail.ingredients')}
             </Typography>
             {recipe.ingredients && recipe.ingredients.length > 0 ? (
               <List dense disablePadding sx={{ mb: 3 }}>
@@ -206,12 +217,12 @@ export default function RecipeDetailPage() {
               </List>
             ) : (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                No ingredients listed for this recipe.
+                {t('detail.noIngredients')}
               </Typography>
             )}
 
             <Typography variant="h6" component="h2" gutterBottom>
-              Instructions
+              {t('detail.instructions')}
             </Typography>
             {recipe.instructions && recipe.instructions.length > 0 ? (
               <Box component="ol" sx={{ pl: 3, m: 0 }}>
@@ -223,7 +234,7 @@ export default function RecipeDetailPage() {
               </Box>
             ) : (
               <Typography variant="body2" color="text.secondary">
-                No instructions listed for this recipe.
+                {t('detail.noInstructions')}
               </Typography>
             )}
           </Paper>

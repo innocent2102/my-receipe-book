@@ -28,11 +28,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
 import UploadIcon from '@mui/icons-material/Upload';
 import { ThemeToggle } from '../../components/ThemeToggle';
+import { LanguageToggle } from '../../components/LanguageToggle';
 import { UserMenu } from '../../components/UserMenu';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { downloadRecipeExport, exportDateStamp } from '../../lib/recipeExport';
+import { useTranslation } from '../../i18n/LanguageProvider';
 
 type RecipeListItem = {
   id: string;
@@ -49,6 +51,7 @@ type RecipeListItem = {
 export default function RecipesPage() {
   const router = useRouter();
   const { status } = useSession();
+  const { t, tPlural } = useTranslation();
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,16 +83,16 @@ export default function RecipesPage() {
         return;
       }
       if (!res.ok || !json.success || !Array.isArray(json.data)) {
-        throw new Error(json.error || 'Could not load recipes');
+        throw new Error(json.error || t('recipes.loadError'));
       }
       setRecipes(json.data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load recipes');
+      setError(e instanceof Error ? e.message : t('recipes.loadError'));
       setRecipes([]);
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, t]);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -114,7 +117,7 @@ export default function RecipesPage() {
       try {
         payload = JSON.parse(text);
       } catch {
-        throw new Error('That file is not valid JSON.');
+        throw new Error(t('recipes.import.invalidJson'));
       }
 
       const res = await fetch('/api/recipes/import', {
@@ -133,18 +136,22 @@ export default function RecipesPage() {
         return;
       }
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Could not import that file.');
+        throw new Error(json.error || t('recipes.import.failed'));
       }
 
       const imported = json.data?.imported ?? 0;
       const skipped = json.data?.skipped ?? 0;
       setImportResult(
-        `Imported ${imported} recipe${imported === 1 ? '' : 's'}` +
-          (skipped > 0 ? ` — skipped ${skipped} without a title.` : '.')
+        [
+          tPlural('recipes.import.success', imported),
+          skipped > 0 ? tPlural('recipes.import.skipped', skipped) : null,
+        ]
+          .filter(Boolean)
+          .join(' ')
       );
       await loadRecipes();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not import that file.');
+      setError(e instanceof Error ? e.message : t('recipes.import.failed'));
     } finally {
       setImporting(false);
     }
@@ -167,16 +174,14 @@ export default function RecipesPage() {
       if (!res.ok || !json.success) {
         setDeleteDialogError(
           json.error ||
-            (res.status === 404
-              ? 'Recipe not found or you no longer have access.'
-              : 'Could not delete this recipe.')
+            (res.status === 404 ? t('recipes.delete.notFound') : t('recipes.delete.failed'))
         );
         return;
       }
       setRecipes((prev) => prev.filter((r) => r.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch {
-      setDeleteDialogError('Network error while deleting. Check that the app and API are running.');
+      setDeleteDialogError(t('recipes.delete.network'));
     } finally {
       setDeletingId(null);
     }
@@ -191,8 +196,9 @@ export default function RecipesPage() {
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            My Recipes
+            {t('recipes.title')}
           </Typography>
+          <LanguageToggle />
           <ThemeToggle />
           <UserMenu />
         </Toolbar>
@@ -210,7 +216,7 @@ export default function RecipesPage() {
           }}
         >
           <Typography variant="h4" component="h1">
-            My Recipes
+            {t('recipes.title')}
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Button
@@ -219,7 +225,7 @@ export default function RecipesPage() {
               onClick={handleExportAll}
               disabled={loading || recipes.length === 0}
             >
-              Export all
+              {t('recipes.exportAll')}
             </Button>
             <Button
               variant="outlined"
@@ -227,14 +233,14 @@ export default function RecipesPage() {
               onClick={() => fileInputRef.current?.click()}
               disabled={importing}
             >
-              {importing ? 'Importing…' : 'Import'}
+              {importing ? t('common.importing') : t('common.import')}
             </Button>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => router.push('/recipes/add')}
             >
-              Add Recipe
+              {t('recipes.addRecipe')}
             </Button>
           </Stack>
         </Box>
@@ -262,10 +268,7 @@ export default function RecipesPage() {
           <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
             {error}
             <Typography component="span" variant="body2" display="block" sx={{ mt: 1 }}>
-              Ensure the backend is running and <code>BACKEND_URL</code> in{' '}
-              <code>frontend/.env.local</code> matches it (default <code>http://localhost:3001</code>
-              ). If you set <code>RECIPES_PROXY_SECRET</code> on the backend, use the same value in{' '}
-              <code>frontend/.env.local</code>.
+              {t('recipes.loadErrorHelp')}
             </Typography>
           </Alert>
         )}
@@ -277,11 +280,10 @@ export default function RecipesPage() {
         ) : recipes.length === 0 ? (
           <Paper elevation={2} sx={{ p: 4, textAlign: 'center' }}>
             <Typography variant="h6" color="text.secondary" gutterBottom>
-              No recipes yet
+              {t('recipes.empty.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Start building your recipe collection by adding your first recipe, or import a
-              previously exported file.
+              {t('recipes.empty.body')}
             </Typography>
             <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" useFlexGap>
               <Button
@@ -289,7 +291,7 @@ export default function RecipesPage() {
                 startIcon={<AddIcon />}
                 onClick={() => router.push('/recipes/add')}
               >
-                Create Your First Recipe
+                {t('recipes.empty.cta')}
               </Button>
               <Button
                 variant="outlined"
@@ -297,7 +299,7 @@ export default function RecipesPage() {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={importing}
               >
-                {importing ? 'Importing…' : 'Import from file'}
+                {importing ? t('common.importing') : t('recipes.empty.importCta')}
               </Button>
             </Stack>
           </Paper>
@@ -313,7 +315,7 @@ export default function RecipesPage() {
                     secondaryAction={
                       <IconButton
                         edge="end"
-                        aria-label={`Delete ${recipe.title}`}
+                        aria-label={t('recipes.deleteAria', { title: recipe.title })}
                         onClick={() => {
                           setDeleteDialogError(null);
                           setDeleteTarget(recipe);
@@ -348,13 +350,22 @@ export default function RecipesPage() {
                               sx={{ mt: 1 }}
                             >
                               {recipe.prepTime != null ? (
-                                <Chip size="small" label={`Prep: ${recipe.prepTime} min`} />
+                                <Chip
+                                  size="small"
+                                  label={t('recipes.chip.prep', { minutes: recipe.prepTime })}
+                                />
                               ) : null}
                               {recipe.cookTime != null ? (
-                                <Chip size="small" label={`Cook: ${recipe.cookTime} min`} />
+                                <Chip
+                                  size="small"
+                                  label={t('recipes.chip.cook', { minutes: recipe.cookTime })}
+                                />
                               ) : null}
                               {recipe.servings != null ? (
-                                <Chip size="small" label={`Servings: ${recipe.servings}`} />
+                                <Chip
+                                  size="small"
+                                  label={t('recipes.chip.servings', { count: recipe.servings })}
+                                />
                               ) : null}
                               {recipe.tags?.map((tag) => (
                                 <Chip key={tag} size="small" variant="outlined" label={tag} />
@@ -382,7 +393,7 @@ export default function RecipesPage() {
           }
         }}
       >
-        <DialogTitle>Delete recipe?</DialogTitle>
+        <DialogTitle>{t('recipes.delete.title')}</DialogTitle>
         <DialogContent>
           {deleteDialogError ? (
             <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDeleteDialogError(null)}>
@@ -390,7 +401,7 @@ export default function RecipesPage() {
             </Alert>
           ) : null}
           <DialogContentText>
-            This will permanently remove &quot;{deleteTarget?.title}&quot; and cannot be undone.
+            {t('recipes.delete.body', { title: deleteTarget?.title ?? '' })}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -401,7 +412,7 @@ export default function RecipesPage() {
             }}
             disabled={deletingId !== null}
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleDeleteConfirm}
@@ -409,7 +420,7 @@ export default function RecipesPage() {
             variant="contained"
             disabled={deletingId !== null}
           >
-            {deletingId ? 'Deleting…' : 'Delete'}
+            {deletingId ? t('common.deleting') : t('common.delete')}
           </Button>
         </DialogActions>
       </Dialog>

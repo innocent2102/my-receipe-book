@@ -2,21 +2,25 @@
 
 import { Container, Typography, Box, AppBar, Toolbar, Button } from '@mui/material';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { LanguageToggle } from '../components/LanguageToggle';
 import { UserMenu } from '../components/UserMenu';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from '../i18n/LanguageProvider';
 
 export default function Home() {
   const { data: session } = useSession();
   const router = useRouter();
+  const { t } = useTranslation();
 
   return (
     <>
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            My Recipe Book
+            {t('common.appName')}
           </Typography>
+          <LanguageToggle />
           <ThemeToggle />
           <UserMenu />
         </Toolbar>
@@ -31,10 +35,12 @@ export default function Home() {
           }}
         >
           <Typography variant="h3" component="h1" gutterBottom>
-            {session?.user ? `Welcome back, ${session.user.name?.split(' ')[0]}!` : 'Welcome to Your Recipe Book'}
+            {session?.user
+              ? t('home.welcomeBack', { name: session.user.name?.split(' ')[0] ?? '' })
+              : t('home.welcome')}
           </Typography>
           <Typography variant="h6" color="text.secondary" align="center">
-            Create and save your own recipes, access your favorites instantly, and generate grocery lists in seconds.
+            {t('home.tagline')}
           </Typography>
           {session ? (
             <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
@@ -43,19 +49,19 @@ export default function Home() {
                 size="large"
                 onClick={() => router.push('/recipes/add')}
               >
-                Add Recipe
+                {t('home.addRecipe')}
               </Button>
               <Button
                 variant="outlined"
                 size="large"
                 onClick={() => router.push('/recipes')}
               >
-                View Recipes
+                {t('home.viewRecipes')}
               </Button>
             </Box>
           ) : (
             <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
-              Please sign in to get started
+              {t('home.signInPrompt')}
             </Typography>
           )}
         </Box>
