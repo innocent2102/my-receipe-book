@@ -148,14 +148,15 @@ export function RecipeForm({
   };
 
   const addIngredient = () => {
+    // Newest row first so the user can keep typing without scrolling.
     setIngredients([
-      ...ingredients,
       {
         id: generateId(),
         name: '',
         amount: 0,
         unit: '',
       },
+      ...ingredients,
     ]);
   };
 
