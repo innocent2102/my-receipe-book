@@ -47,6 +47,139 @@ function parseTags(tags: string | null): string[] | undefined {
   }
 }
 
+export type RecipeInput = {
+  title?: unknown;
+  description?: unknown;
+  ingredients?: unknown;
+  instructions?: unknown;
+  prepTime?: unknown;
+  cookTime?: unknown;
+  servings?: unknown;
+  tags?: unknown;
+};
+
+type NormalizedRecipe = {
+  title: string;
+  description: string | null;
+  prepTime: number | null;
+  cookTime: number | null;
+  servings: number | null;
+  tags: string | null;
+  ingredients: { name: string; amount: number; unit: string }[];
+  instructions: string[];
+};
+
+function toOptionalNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+/** Validates/normalizes an untrusted recipe payload (create or import). */
+function normalizeRecipeInput(raw: RecipeInput): NormalizedRecipe | null {
+  const title = typeof raw?.title === 'string' ? raw.title.trim() : '';
+  if (!title) return null;
+
+  const description = typeof raw.description === 'string' ? raw.description.trim() : '';
+
+  const tags = Array.isArray(raw.tags)
+    ? raw.tags.filter((t): t is string => typeof t === 'string' && t.trim() !== '').map((t) => t.trim())
+    : [];
+
+  const ingredients = Array.isArray(raw.ingredients)
+    ? raw.ingredients
+        .filter((ing): ing is Record<string, unknown> => typeof ing === 'object' && ing !== null)
+        .map((ing) => ({
+          name: typeof ing.name === 'string' ? ing.name.trim() : '',
+          amount: toOptionalNumber(ing.amount) ?? 0,
+          unit: typeof ing.unit === 'string' ? ing.unit.trim() : '',
+        }))
+        .filter((ing) => ing.name !== '')
+    : [];
+
+  const instructions = Array.isArray(raw.instructions)
+    ? raw.instructions
+        .filter((step): step is string => typeof step === 'string')
+        .map((step) => step.trim())
+        .filter((step) => step !== '')
+    : [];
+
+  return {
+    title,
+    description: description || null,
+    prepTime: toOptionalNumber(raw.prepTime),
+    cookTime: toOptionalNumber(raw.cookTime),
+    servings: toOptionalNumber(raw.servings),
+    tags: tags.length > 0 ? JSON.stringify(tags) : null,
+    ingredients,
+    instructions,
+  };
+}
+
+function recipeInsertStatements(db: Database) {
+  return {
+    recipe: db.prepare(`
+      INSERT INTO recipes (id, title, description, prep_time, cook_time, servings, tags, user_id, created_at, updated_at)
+      VALUES (@id, @title, @description, @prep_time, @cook_time, @servings, @tags, @user_id, @created_at, @updated_at)
+    `),
+    ingredient: db.prepare(`
+      INSERT INTO ingredients (id, recipe_id, name, amount, unit)
+      VALUES (@id, @recipe_id, @name, @amount, @unit)
+    `),
+    instruction: db.prepare(`
+      INSERT INTO instructions (id, recipe_id, step_number, instruction)
+      VALUES (@id, @recipe_id, @step_number, @instruction)
+    `),
+  };
+}
+
+/** Writes one normalized recipe. Caller is responsible for the surrounding transaction. */
+function insertRecipe(
+  statements: ReturnType<typeof recipeInsertStatements>,
+  userId: string,
+  recipe: NormalizedRecipe
+): string {
+  const recipeId = generateRecipeId();
+  const now = new Date().toISOString();
+
+  statements.recipe.run({
+    id: recipeId,
+    title: recipe.title,
+    description: recipe.description,
+    prep_time: recipe.prepTime,
+    cook_time: recipe.cookTime,
+    servings: recipe.servings,
+    tags: recipe.tags,
+    user_id: userId,
+    created_at: now,
+    updated_at: now,
+  });
+
+  for (const ing of recipe.ingredients) {
+    statements.ingredient.run({
+      id: generateRecipeId(),
+      recipe_id: recipeId,
+      name: ing.name,
+      amount: ing.amount,
+      unit: ing.unit,
+    });
+  }
+
+  recipe.instructions.forEach((text, index) => {
+    statements.instruction.run({
+      id: generateRecipeId(),
+      recipe_id: recipeId,
+      step_number: index + 1,
+      instruction: text,
+    });
+  });
+
+  return recipeId;
+}
+
 router.get('/', (req, res) => {
   if (!isDbAvailable()) {
     return res.status(503).json({ success: false, error: 'Database unavailable' });
@@ -187,83 +320,18 @@ router.post('/', (req, res) => {
   const userId = requireRecipeUser(req, res);
   if (!userId) return;
 
-  const body = req.body as {
-    title?: string;
-    description?: string;
-    ingredients?: { name?: string; amount?: number; unit?: string }[];
-    instructions?: string[];
-    prepTime?: number;
-    cookTime?: number;
-    servings?: number;
-    tags?: string[];
-  };
-
-  const title = typeof body.title === 'string' ? body.title.trim() : '';
-  if (!title) {
+  const body = req.body as RecipeInput;
+  const normalized = normalizeRecipeInput(body);
+  if (!normalized) {
     return res.status(400).json({ success: false, error: 'Title is required' });
   }
 
   const db = getDatabase() as Database;
-  const recipeId = generateRecipeId();
-  const now = new Date().toISOString();
-  const description = typeof body.description === 'string' ? body.description.trim() : undefined;
-  const tagsJson =
-    Array.isArray(body.tags) && body.tags.length > 0 ? JSON.stringify(body.tags) : null;
+  const statements = recipeInsertStatements(db);
 
-  const ingredients = Array.isArray(body.ingredients) ? body.ingredients : [];
-  const instructions = Array.isArray(body.instructions) ? body.instructions : [];
-
-  const insertRecipe = db.prepare(`
-    INSERT INTO recipes (id, title, description, prep_time, cook_time, servings, tags, user_id, created_at, updated_at)
-    VALUES (@id, @title, @description, @prep_time, @cook_time, @servings, @tags, @user_id, @created_at, @updated_at)
-  `);
-
-  const insertIngredient = db.prepare(`
-    INSERT INTO ingredients (id, recipe_id, name, amount, unit)
-    VALUES (@id, @recipe_id, @name, @amount, @unit)
-  `);
-
-  const insertInstruction = db.prepare(`
-    INSERT INTO instructions (id, recipe_id, step_number, instruction)
-    VALUES (@id, @recipe_id, @step_number, @instruction)
-  `);
-
-  const transaction = db.transaction(() => {
-    insertRecipe.run({
-      id: recipeId,
-      title,
-      description: description || null,
-      prep_time: typeof body.prepTime === 'number' && !Number.isNaN(body.prepTime) ? body.prepTime : null,
-      cook_time: typeof body.cookTime === 'number' && !Number.isNaN(body.cookTime) ? body.cookTime : null,
-      servings: typeof body.servings === 'number' && !Number.isNaN(body.servings) ? body.servings : null,
-      tags: tagsJson,
-      user_id: userId,
-      created_at: now,
-      updated_at: now,
-    });
-
-    for (const ing of ingredients) {
-      insertIngredient.run({
-        id: generateRecipeId(),
-        recipe_id: recipeId,
-        name: typeof ing.name === 'string' ? ing.name : '',
-        amount: typeof ing.amount === 'number' && !Number.isNaN(ing.amount) ? ing.amount : 0,
-        unit: typeof ing.unit === 'string' ? ing.unit : '',
-      });
-    }
-
-    instructions.forEach((text, index) => {
-      insertInstruction.run({
-        id: generateRecipeId(),
-        recipe_id: recipeId,
-        step_number: index + 1,
-        instruction: typeof text === 'string' ? text : '',
-      });
-    });
-  });
-
+  let recipeId: string;
   try {
-    transaction();
+    recipeId = db.transaction(() => insertRecipe(statements, userId, normalized))();
   } catch (e) {
     console.error('Failed to save recipe:', e);
     return res.status(500).json({ success: false, error: 'Failed to save recipe' });
@@ -297,6 +365,82 @@ router.post('/', (req, res) => {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     },
+  });
+});
+
+const MAX_IMPORT_RECIPES = 500;
+
+/** Bulk import. Accepts the export envelope `{ recipes: [...] }` or a bare array. */
+router.post('/import', (req, res) => {
+  if (!isDbAvailable()) {
+    return res.status(503).json({ success: false, error: 'Database unavailable' });
+  }
+
+  const userId = requireRecipeUser(req, res);
+  if (!userId) return;
+
+  const body = req.body as { recipes?: unknown } | unknown[];
+  const rawRecipes = Array.isArray(body)
+    ? body
+    : Array.isArray((body as { recipes?: unknown })?.recipes)
+      ? ((body as { recipes: unknown[] }).recipes)
+      : null;
+
+  if (!rawRecipes) {
+    return res.status(400).json({
+      success: false,
+      error: 'Expected a JSON file containing a "recipes" array.',
+    });
+  }
+
+  if (rawRecipes.length === 0) {
+    return res.status(400).json({ success: false, error: 'The file contains no recipes.' });
+  }
+
+  if (rawRecipes.length > MAX_IMPORT_RECIPES) {
+    return res.status(413).json({
+      success: false,
+      error: `Too many recipes in one import (max ${MAX_IMPORT_RECIPES}).`,
+    });
+  }
+
+  const normalized: NormalizedRecipe[] = [];
+  let skipped = 0;
+  for (const raw of rawRecipes) {
+    const recipe =
+      typeof raw === 'object' && raw !== null ? normalizeRecipeInput(raw as RecipeInput) : null;
+    if (recipe) {
+      normalized.push(recipe);
+    } else {
+      skipped += 1;
+    }
+  }
+
+  if (normalized.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'No valid recipes found. Each recipe needs at least a title.',
+    });
+  }
+
+  const db = getDatabase() as Database;
+  const statements = recipeInsertStatements(db);
+
+  try {
+    // All-or-nothing: a partially applied import would be confusing to undo.
+    db.transaction(() => {
+      for (const recipe of normalized) {
+        insertRecipe(statements, userId, recipe);
+      }
+    })();
+  } catch (e) {
+    console.error('Failed to import recipes:', e);
+    return res.status(500).json({ success: false, error: 'Failed to import recipes' });
+  }
+
+  return res.status(201).json({
+    success: true,
+    data: { imported: normalized.length, skipped },
   });
 });
 

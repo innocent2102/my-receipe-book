@@ -18,11 +18,13 @@ import {
   Divider,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import DownloadIcon from '@mui/icons-material/Download';
 import { ThemeToggle } from '../../../components/ThemeToggle';
 import { UserMenu } from '../../../components/UserMenu';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { downloadRecipeExport, slugify } from '../../../lib/recipeExport';
 
 type Ingredient = {
   id: string;
@@ -120,9 +122,29 @@ export default function RecipeDetailPage() {
       </AppBar>
 
       <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/recipes')} sx={{ mb: 3 }}>
-          Back to recipes
-        </Button>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 2,
+            mb: 3,
+          }}
+        >
+          <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/recipes')}>
+            Back to recipes
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={() => {
+              if (recipe) downloadRecipeExport([recipe], slugify(recipe.title));
+            }}
+            disabled={!recipe}
+          >
+            Export
+          </Button>
+        </Box>
 
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>

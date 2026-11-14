@@ -25,16 +25,21 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import DownloadIcon from '@mui/icons-material/Download';
+import UploadIcon from '@mui/icons-material/Upload';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { UserMenu } from '../../components/UserMenu';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { downloadRecipeExport, exportDateStamp } from '../../lib/recipeExport';
 
 type RecipeListItem = {
   id: string;
   title: string;
   description?: string;
+  ingredients?: { name?: string; amount?: number; unit?: string }[];
+  instructions?: string[];
   prepTime?: number;
   cookTime?: number;
   servings?: number;
@@ -50,6 +55,9 @@ export default function RecipesPage() {
   const [deleteTarget, setDeleteTarget] = useState<RecipeListItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteDialogError, setDeleteDialogError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -90,6 +98,57 @@ export default function RecipesPage() {
       setLoading(false);
     }
   }, [status, loadRecipes]);
+
+  const handleExportAll = () => {
+    if (recipes.length === 0) return;
+    downloadRecipeExport(recipes, `my-recipes-${exportDateStamp()}`);
+  };
+
+  const handleImportFile = async (file: File) => {
+    setImporting(true);
+    setError(null);
+    setImportResult(null);
+    try {
+      const text = await file.text();
+      let payload: unknown;
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        throw new Error('That file is not valid JSON.');
+      }
+
+      const res = await fetch('/api/recipes/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: { imported?: number; skipped?: number };
+        error?: string;
+      };
+
+      if (res.status === 401) {
+        router.replace('/login?callbackUrl=/recipes');
+        return;
+      }
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Could not import that file.');
+      }
+
+      const imported = json.data?.imported ?? 0;
+      const skipped = json.data?.skipped ?? 0;
+      setImportResult(
+        `Imported ${imported} recipe${imported === 1 ? '' : 's'}` +
+          (skipped > 0 ? ` — skipped ${skipped} without a title.` : '.')
+      );
+      await loadRecipes();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not import that file.');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
@@ -140,19 +199,64 @@ export default function RecipesPage() {
       </AppBar>
 
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: { xs: 'stretch', sm: 'center' },
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 2,
+            mb: 4,
+          }}
+        >
           <Typography variant="h4" component="h1">
             My Recipes
           </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => router.push('/recipes/add')}
-            size="large"
-          >
-            Add Recipe
-          </Button>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={handleExportAll}
+              disabled={loading || recipes.length === 0}
+            >
+              Export all
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<UploadIcon />}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+            >
+              {importing ? 'Importing…' : 'Import'}
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => router.push('/recipes/add')}
+            >
+              Add Recipe
+            </Button>
+          </Stack>
         </Box>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            // Reset so picking the same file again still fires onChange.
+            e.target.value = '';
+            if (file) handleImportFile(file);
+          }}
+        />
+
+        {importResult && (
+          <Alert severity="success" sx={{ mb: 3 }} onClose={() => setImportResult(null)}>
+            {importResult}
+          </Alert>
+        )}
 
         {error && (
           <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
@@ -176,15 +280,26 @@ export default function RecipesPage() {
               No recipes yet
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Start building your recipe collection by adding your first recipe!
+              Start building your recipe collection by adding your first recipe, or import a
+              previously exported file.
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => router.push('/recipes/add')}
-            >
-              Create Your First Recipe
-            </Button>
+            <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" useFlexGap>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => router.push('/recipes/add')}
+              >
+                Create Your First Recipe
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<UploadIcon />}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={importing}
+              >
+                {importing ? 'Importing…' : 'Import from file'}
+              </Button>
+            </Stack>
           </Paper>
         ) : (
           <Paper elevation={2} sx={{ overflow: 'hidden' }}>
