@@ -46,6 +46,11 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { downloadRecipeExport, exportDateStamp } from '../../lib/recipeExport';
 import { useTranslation } from '../../i18n/LanguageProvider';
+import { OfflineIndicator } from '../../components/OfflineIndicator';
+import { useOnline } from '../../lib/useOnline';
+import { readOffline, writeOffline } from '../../lib/offlineStore';
+
+const RECIPES_CACHE_KEY = 'recipes.list';
 
 type RecipeListItem = {
   id: string;
@@ -92,6 +97,7 @@ export default function RecipesPage() {
   const router = useRouter();
   const { status } = useSession();
   const { t, tPlural } = useTranslation();
+  const online = useOnline();
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +110,7 @@ export default function RecipesPage() {
   const [search, setSearch] = useState('');
   const [groceryTarget, setGroceryTarget] = useState<RecipeListItem | null>(null);
   const [groceryAdded, setGroceryAdded] = useState<number | null>(null);
+  const [usingOfflineCopy, setUsingOfflineCopy] = useState(false);
 
   /** All whitespace-separated terms must match, so extra words narrow the list. */
   const filteredRecipes = useMemo(() => {
@@ -116,10 +123,10 @@ export default function RecipesPage() {
   }, [recipes, search]);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (status === 'unauthenticated' && online) {
       router.replace('/login?callbackUrl=/recipes');
     }
-  }, [status, router]);
+  }, [status, online, router]);
 
   const loadRecipes = useCallback(async () => {
     setLoading(true);
@@ -139,9 +146,19 @@ export default function RecipesPage() {
         throw new Error(json.error || t('recipes.loadError'));
       }
       setRecipes(json.data);
+      writeOffline(RECIPES_CACHE_KEY, json.data);
+      setUsingOfflineCopy(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('recipes.loadError'));
-      setRecipes([]);
+      // Fall back to the last successful load so recipes stay readable offline.
+      const cached = readOffline<RecipeListItem[]>(RECIPES_CACHE_KEY);
+      if (cached && cached.length > 0) {
+        setRecipes(cached);
+        setUsingOfflineCopy(true);
+        setError(null);
+      } else {
+        setError(e instanceof Error ? e.message : t('recipes.loadError'));
+        setRecipes([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -151,9 +168,16 @@ export default function RecipesPage() {
     if (status === 'authenticated') {
       loadRecipes();
     } else if (status === 'unauthenticated') {
+      if (!online) {
+        const cached = readOffline<RecipeListItem[]>(RECIPES_CACHE_KEY);
+        if (cached && cached.length > 0) {
+          setRecipes(cached);
+          setUsingOfflineCopy(true);
+        }
+      }
       setLoading(false);
     }
-  }, [status, loadRecipes]);
+  }, [status, online, loadRecipes]);
 
   const handleExportAll = () => {
     if (recipes.length === 0) return;
@@ -240,7 +264,7 @@ export default function RecipesPage() {
     }
   };
 
-  if (status === 'unauthenticated') {
+  if (status === 'unauthenticated' && online) {
     return null;
   }
 
@@ -251,6 +275,7 @@ export default function RecipesPage() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             {t('recipes.title')}
           </Typography>
+          <OfflineIndicator online={online} />
           <IconButton
             color="inherit"
             aria-label={t('grocery.openAria')}
@@ -291,7 +316,7 @@ export default function RecipesPage() {
               variant="outlined"
               startIcon={<UploadIcon />}
               onClick={() => fileInputRef.current?.click()}
-              disabled={importing}
+              disabled={importing || !online}
             >
               {importing ? t('common.importing') : t('common.import')}
             </Button>
@@ -299,6 +324,7 @@ export default function RecipesPage() {
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => router.push('/recipes/add')}
+              disabled={!online}
             >
               {t('recipes.addRecipe')}
             </Button>
@@ -320,6 +346,11 @@ export default function RecipesPage() {
 
         {!loading && recipes.length > 0 ? (
           <Box sx={{ mb: 3 }}>
+            {usingOfflineCopy ? (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                {t('offline.cachedRecipes')}
+              </Alert>
+            ) : null}
             <TextField
               fullWidth
               size="small"
@@ -439,7 +470,7 @@ export default function RecipesPage() {
                           onClick={() =>
                             router.push(`/recipes/${encodeURIComponent(recipe.id)}/edit`)
                           }
-                          disabled={deletingId !== null}
+                          disabled={deletingId !== null || !online}
                         >
                           <EditIcon />
                         </IconButton>
@@ -450,7 +481,7 @@ export default function RecipesPage() {
                             setDeleteDialogError(null);
                             setDeleteTarget(recipe);
                           }}
-                          disabled={deletingId !== null}
+                          disabled={deletingId !== null || !online}
                           color="error"
                         >
                           <DeleteIcon />

@@ -27,84 +27,98 @@ import AddIcon from '@mui/icons-material/Add';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { LanguageToggle } from '../../components/LanguageToggle';
 import { UserMenu } from '../../components/UserMenu';
+import { OfflineIndicator } from '../../components/OfflineIndicator';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useOnline } from '../../lib/useOnline';
+import { readOffline, writeOffline } from '../../lib/offlineStore';
+import {
+  applyOp,
+  fetchList,
+  newLocalId,
+  readCachedItems,
+  readQueue,
+  replayQueue,
+  UnauthorizedError,
+  writeCachedItems,
+  writeQueue,
+  type GroceryItem,
+  type PendingOp,
+} from '../../lib/groceryOffline';
 import { useTranslation } from '../../i18n/LanguageProvider';
 
-type GroceryItem = {
-  id: string;
-  name: string;
-  amount: number;
-  unit: string;
-  checked: boolean;
-};
-
-type GroceryResponse = {
-  success?: boolean;
-  data?: { id: string; items: GroceryItem[] };
-  error?: string;
-};
+const INGREDIENTS_CACHE_KEY = 'ingredients';
 
 export default function GroceryPage() {
   const router = useRouter();
   const { status } = useSession();
   const { t, tPlural } = useTranslation();
+  const online = useOnline();
   const [items, setItems] = useState<GroceryItem[]>([]);
+  const [queue, setQueue] = useState<PendingOp[]>([]);
   const [ingredientOptions, setIngredientOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [newAmount, setNewAmount] = useState<number | ''>('');
   const [newUnit, setNewUnit] = useState('');
+  const syncing = useRef(false);
 
+  // Offline the session endpoint may be unreachable, so never bounce the user
+  // out of a list they are standing in a shop with.
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (status === 'unauthenticated' && online) {
       router.replace('/login?callbackUrl=%2Fgrocery');
     }
-  }, [status, router]);
+  }, [status, online, router]);
 
-  /** Shared handler: every endpoint returns the full, refreshed list. */
-  const applyResponse = useCallback(
-    (res: Response, json: GroceryResponse) => {
-      if (res.status === 401) {
-        router.replace('/login?callbackUrl=%2Fgrocery');
-        return false;
-      }
-      if (!res.ok || !json.success || !json.data) {
-        throw new Error(json.error || t('grocery.loadError'));
-      }
-      setItems(json.data.items);
-      return true;
-    },
-    [router, t]
-  );
+  /** Show the local copy immediately — the network is only ever a refresh. */
+  useEffect(() => {
+    setItems(readCachedItems());
+    setQueue(readQueue());
+    setIngredientOptions(readOffline<string[]>(INGREDIENTS_CACHE_KEY) ?? []);
+    setLoading(false);
+  }, []);
 
-  const loadList = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const sync = useCallback(async () => {
+    if (syncing.current) return;
+    syncing.current = true;
     try {
-      const res = await fetch('/api/grocery', { cache: 'no-store' });
-      const json = (await res.json().catch(() => ({}))) as GroceryResponse;
-      applyResponse(res, json);
+      const pending = readQueue();
+      const { remaining, synced } = pending.length
+        ? await replayQueue(pending)
+        : { remaining: [] as PendingOp[], synced: false };
+
+      writeQueue(remaining);
+      setQueue(remaining);
+      if (remaining.length > 0) return;
+
+      // Queue is drained, so the server is now authoritative.
+      const fresh = await fetchList();
+      setItems(fresh);
+      writeCachedItems(fresh);
+      if (synced) setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('grocery.loadError'));
+      if (e instanceof UnauthorizedError && online) {
+        router.replace('/login?callbackUrl=%2Fgrocery');
+        return;
+      }
+      // Otherwise keep working from the local copy; the queue survives a reload.
+      if (online) setError(t('grocery.syncError'));
     } finally {
-      setLoading(false);
+      syncing.current = false;
     }
-  }, [applyResponse, t]);
+  }, [online, router, t]);
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      loadList();
-    } else if (status === 'unauthenticated') {
-      setLoading(false);
+    if (status === 'authenticated' && online) {
+      void sync();
     }
-  }, [status, loadList]);
+  }, [status, online, sync]);
 
   useEffect(() => {
-    if (status !== 'authenticated') return;
+    if (status !== 'authenticated' || !online) return;
 
     let cancelled = false;
 
@@ -117,6 +131,7 @@ export default function GroceryPage() {
         };
         if (!cancelled && res.ok && json.success && Array.isArray(json.data)) {
           setIngredientOptions(json.data);
+          writeOffline(INGREDIENTS_CACHE_KEY, json.data);
         }
       } catch (err) {
         console.error('Error loading ingredient suggestions:', err);
@@ -128,51 +143,47 @@ export default function GroceryPage() {
     return () => {
       cancelled = true;
     };
-  }, [status]);
+  }, [status, online]);
 
-  const mutate = async (input: RequestInfo, init: RequestInit) => {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(input, init);
-      const json = (await res.json().catch(() => ({}))) as GroceryResponse;
-      applyResponse(res, json);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t('grocery.saveError'));
-    } finally {
-      setBusy(false);
-    }
-  };
+  /** Single write path: update the local copy, queue the change, then sync. */
+  const enqueue = useCallback(
+    (op: PendingOp) => {
+      setItems((prev) => {
+        const next = applyOp(prev, op);
+        writeCachedItems(next);
+        return next;
+      });
+      setQueue((prev) => {
+        const next = [...prev, op];
+        writeQueue(next);
+        return next;
+      });
+      if (online) {
+        // Let state settle first so sync reads the queue including this op.
+        setTimeout(() => void sync(), 0);
+      }
+    },
+    [online, sync]
+  );
 
-  const handleToggle = (item: GroceryItem) => {
-    // Optimistic: the checkbox should feel instant while the request is in flight.
-    setItems((prev) =>
-      prev.map((i) => (i.id === item.id ? { ...i, checked: !i.checked } : i))
-    );
-    void mutate(`/api/grocery?id=${encodeURIComponent(item.id)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ checked: !item.checked }),
-    });
-  };
+  const handleToggle = (item: GroceryItem) =>
+    enqueue({ kind: 'toggle', itemId: item.id, checked: !item.checked });
 
-  const handleRemove = (item: GroceryItem) =>
-    void mutate(`/api/grocery?id=${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+  const handleRemove = (item: GroceryItem) => enqueue({ kind: 'remove', itemId: item.id });
 
-  const handleClearChecked = () =>
-    void mutate('/api/grocery?checked=true', { method: 'DELETE' });
+  const handleClearChecked = () => enqueue({ kind: 'clearChecked' });
 
-  const handleAdd = async (e: React.FormEvent) => {
+  const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     const name = newName.trim();
     if (!name) return;
 
-    await mutate('/api/grocery', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        items: [{ name, amount: newAmount === '' ? 0 : Number(newAmount), unit: newUnit.trim() }],
-      }),
+    enqueue({
+      kind: 'add',
+      localId: newLocalId(),
+      name,
+      amount: newAmount === '' ? 0 : Number(newAmount),
+      unit: newUnit.trim(),
     });
 
     setNewName('');
@@ -180,7 +191,7 @@ export default function GroceryPage() {
     setNewUnit('');
   };
 
-  if (status === 'unauthenticated') {
+  if (status === 'unauthenticated' && online) {
     return null;
   }
 
@@ -201,6 +212,7 @@ export default function GroceryPage() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             {t('grocery.title')}
           </Typography>
+          <OfflineIndicator online={online} pending={queue.length} />
           <LanguageToggle />
           <ThemeToggle />
           <UserMenu />
@@ -251,14 +263,14 @@ export default function GroceryPage() {
               type="submit"
               variant="contained"
               startIcon={<AddIcon />}
-              disabled={busy || !newName.trim()}
+              disabled={!newName.trim()}
             >
               {t('common.add')}
             </Button>
           </Box>
         </Paper>
 
-        {status === 'loading' || loading ? (
+        {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
             <CircularProgress />
           </Box>
@@ -277,7 +289,7 @@ export default function GroceryPage() {
               <Typography variant="body2" color="text.secondary">
                 {tPlural('grocery.count', items.length, { count: items.length })}
               </Typography>
-              <Button size="small" onClick={handleClearChecked} disabled={busy || checkedCount === 0}>
+              <Button size="small" onClick={handleClearChecked} disabled={checkedCount === 0}>
                 {t('grocery.clearChecked')}
               </Button>
             </Stack>
@@ -294,7 +306,6 @@ export default function GroceryPage() {
                       color="error"
                       aria-label={t('grocery.removeAria', { name: item.name })}
                       onClick={() => handleRemove(item)}
-                      disabled={busy}
                     >
                       <DeleteIcon />
                     </IconButton>

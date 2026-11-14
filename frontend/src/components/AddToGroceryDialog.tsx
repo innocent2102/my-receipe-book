@@ -17,6 +17,7 @@ import {
   Stack,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
+import { flushQueue, queueAdditions } from '../lib/groceryOffline';
 import { useTranslation } from '../i18n/LanguageProvider';
 
 export type GroceryCandidate = {
@@ -67,27 +68,17 @@ export function AddToGroceryDialog({ open, recipeId, ingredients, onClose, onAdd
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch('/api/grocery', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: picked.map((ingredient) => ({
-            name: ingredient.name,
-            amount: ingredient.amount,
-            unit: ingredient.unit,
-            recipeId,
-          })),
-        }),
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        success?: boolean;
-        added?: number;
-        error?: string;
-      };
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || t('grocery.saveError'));
-      }
-      onAdded(json.added ?? picked.length);
+      // Queued locally first, so this works in a shop with no connection.
+      const added = queueAdditions(
+        picked.map((ingredient) => ({
+          name: ingredient.name,
+          amount: ingredient.amount,
+          unit: ingredient.unit,
+          recipeId,
+        }))
+      );
+      await flushQueue().catch(() => undefined);
+      onAdded(added);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : t('grocery.saveError'));

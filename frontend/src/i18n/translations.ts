@@ -151,6 +151,15 @@ const en = {
   'grocery.added.many': 'Added {count} items to the shopping list.',
   'grocery.added.other': 'Added {count} items to the shopping list.',
   'grocery.viewList': 'View list',
+  'offline.label': 'Offline',
+  'offline.pendingLabel': 'Syncing',
+  'offline.tooltip': 'No connection — you are working on the copy saved on this device.',
+  'offline.pending.one': '{count} change waiting to be synced.',
+  'offline.pending.few': '{count} changes waiting to be synced.',
+  'offline.pending.many': '{count} changes waiting to be synced.',
+  'offline.pending.other': '{count} changes waiting to be synced.',
+  'offline.cachedRecipes': 'No connection — showing the copy saved on this device.',
+  'grocery.syncError': 'Your changes are saved on this device but could not be synced yet.',
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -300,6 +309,15 @@ const pl: Record<TranslationKey, string> = {
   'grocery.added.many': 'Dodano {count} produktów do listy zakupów.',
   'grocery.added.other': 'Dodano {count} produktów do listy zakupów.',
   'grocery.viewList': 'Zobacz listę',
+  'offline.label': 'Offline',
+  'offline.pendingLabel': 'Synchronizacja',
+  'offline.tooltip': 'Brak połączenia — pracujesz na kopii zapisanej na tym urządzeniu.',
+  'offline.pending.one': '{count} zmiana czeka na synchronizację.',
+  'offline.pending.few': '{count} zmiany czekają na synchronizację.',
+  'offline.pending.many': '{count} zmian czeka na synchronizację.',
+  'offline.pending.other': '{count} zmian czeka na synchronizację.',
+  'offline.cachedRecipes': 'Brak połączenia — pokazujemy kopię zapisaną na tym urządzeniu.',
+  'grocery.syncError': 'Zmiany są zapisane na urządzeniu, ale nie udało się ich jeszcze zsynchronizować.',
 };
 
 export const dictionaries: Record<Locale, Record<TranslationKey, string>> = { en, pl };

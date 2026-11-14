@@ -32,6 +32,11 @@ import { useSession } from 'next-auth/react';
 import { downloadRecipeExport, slugify } from '../../../lib/recipeExport';
 import { youTubeEmbedUrl } from '../../../lib/youtube';
 import { useTranslation } from '../../../i18n/LanguageProvider';
+import { OfflineIndicator } from '../../../components/OfflineIndicator';
+import { useOnline } from '../../../lib/useOnline';
+import { readOffline, writeOffline } from '../../../lib/offlineStore';
+
+const DETAIL_CACHE_PREFIX = 'recipes.detail.';
 
 type Ingredient = {
   id: string;
@@ -59,19 +64,21 @@ export default function RecipeDetailPage() {
   const recipeId = Array.isArray(params?.id) ? params.id[0] : params?.id;
   const { status } = useSession();
   const { t, tPlural } = useTranslation();
+  const online = useOnline();
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [groceryOpen, setGroceryOpen] = useState(false);
   const [groceryAdded, setGroceryAdded] = useState<number | null>(null);
+  const [usingOfflineCopy, setUsingOfflineCopy] = useState(false);
 
   const callbackUrl = recipeId ? `/recipes/${encodeURIComponent(recipeId)}` : '/recipes';
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (status === 'unauthenticated' && online) {
       router.replace(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
     }
-  }, [status, router, callbackUrl]);
+  }, [status, online, router, callbackUrl]);
 
   const loadRecipe = useCallback(async () => {
     if (!recipeId) return;
@@ -95,9 +102,18 @@ export default function RecipeDetailPage() {
         throw new Error(json.error || t('detail.loadError'));
       }
       setRecipe(json.data);
+      writeOffline(`${DETAIL_CACHE_PREFIX}${recipeId}`, json.data);
+      setUsingOfflineCopy(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('detail.loadError'));
-      setRecipe(null);
+      const cached = readOffline<RecipeDetail>(`${DETAIL_CACHE_PREFIX}${recipeId}`);
+      if (cached) {
+        setRecipe(cached);
+        setUsingOfflineCopy(true);
+        setError(null);
+      } else {
+        setError(e instanceof Error ? e.message : t('detail.loadError'));
+        setRecipe(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -107,11 +123,18 @@ export default function RecipeDetailPage() {
     if (status === 'authenticated') {
       loadRecipe();
     } else if (status === 'unauthenticated') {
+      if (!online && recipeId) {
+        const cached = readOffline<RecipeDetail>(`${DETAIL_CACHE_PREFIX}${recipeId}`);
+        if (cached) {
+          setRecipe(cached);
+          setUsingOfflineCopy(true);
+        }
+      }
       setLoading(false);
     }
-  }, [status, loadRecipe]);
+  }, [status, online, recipeId, loadRecipe]);
 
-  if (status === 'unauthenticated') {
+  if (status === 'unauthenticated' && online) {
     return null;
   }
 
@@ -136,6 +159,7 @@ export default function RecipeDetailPage() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             {t('detail.title')}
           </Typography>
+          <OfflineIndicator online={online} />
           <LanguageToggle />
           <ThemeToggle />
           <UserMenu />
@@ -171,7 +195,7 @@ export default function RecipeDetailPage() {
               onClick={() => {
                 if (recipe) router.push(`/recipes/${encodeURIComponent(recipe.id)}/edit`);
               }}
-              disabled={!recipe}
+              disabled={!recipe || !online}
             >
               {t('common.edit')}
             </Button>
@@ -191,6 +215,12 @@ export default function RecipeDetailPage() {
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>
             {error}
+          </Alert>
+        )}
+
+        {usingOfflineCopy && (
+          <Alert severity="info" sx={{ mb: 3 }}>
+            {t('offline.cachedRecipes')}
           </Alert>
         )}
 
