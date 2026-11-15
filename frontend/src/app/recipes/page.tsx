@@ -39,10 +39,14 @@ import BookmarkIcon from '@mui/icons-material/Bookmark';
 import BookmarkAddOutlinedIcon from '@mui/icons-material/BookmarkAddOutlined';
 import BookmarksIcon from '@mui/icons-material/Bookmarks';
 import AddLinkIcon from '@mui/icons-material/AddLink';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import EventNoteIcon from '@mui/icons-material/EventNote';
 import {
   AddToGroceryDialog,
   groceryCandidates,
 } from '../../components/AddToGroceryDialog';
+import { PlanRecipeDialog } from '../../components/PlanRecipeDialog';
+import { isoDate } from '../../lib/week';
 import { ImportFromUrlDialog } from '../../components/ImportFromUrlDialog';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { LanguageToggle } from '../../components/LanguageToggle';
@@ -89,6 +93,8 @@ export default function RecipesPage() {
   const [importResult, setImportResult] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [groceryTarget, setGroceryTarget] = useState<RecipeListItem | null>(null);
+  const [plannerTarget, setPlannerTarget] = useState<RecipeListItem | null>(null);
+  const [plannerNotice, setPlannerNotice] = useState<string | null>(null);
   const [groceryAdded, setGroceryAdded] = useState<number | null>(null);
   const [usingOfflineCopy, setUsingOfflineCopy] = useState(false);
   const [plannedIds, setPlannedIds] = useState<Set<string>>(new Set());
@@ -311,6 +317,15 @@ export default function RecipesPage() {
               <BookmarksIcon />
             </IconButton>
           </Tooltip>
+          <Tooltip title={t('planner.title')}>
+            <IconButton
+              color="inherit"
+              aria-label={t('planner.openAria')}
+              onClick={() => router.push('/planner')}
+            >
+              <EventNoteIcon />
+            </IconButton>
+          </Tooltip>
           <Tooltip title={t('recipes.addRecipe')}>
             <span>
               <IconButton
@@ -492,7 +507,7 @@ export default function RecipesPage() {
             <RecipeRows
               recipes={filteredRecipes}
               onOpen={(recipe) => router.push(`/recipes/${encodeURIComponent(recipe.id)}`)}
-              actionsSpacing={26}
+              actionsSpacing={32}
               renderActions={(recipe) => (
                 <>
                   <IconButton
@@ -506,6 +521,13 @@ export default function RecipesPage() {
                     color={plannedIds.has(recipe.id) ? 'primary' : 'default'}
                   >
                     {plannedIds.has(recipe.id) ? <BookmarkIcon /> : <BookmarkAddOutlinedIcon />}
+                  </IconButton>
+                  <IconButton
+                    aria-label={t('planner.addAria', { title: recipe.title })}
+                    onClick={() => setPlannerTarget(recipe)}
+                    disabled={deletingId !== null || !online}
+                  >
+                    <CalendarMonthIcon />
                   </IconButton>
                   <IconButton
                     aria-label={t('grocery.addAria', { title: recipe.title })}
@@ -608,6 +630,32 @@ export default function RecipesPage() {
           }
         >
           {tPlural('grocery.added', groceryAdded ?? 0, { count: groceryAdded ?? 0 })}
+        </Alert>
+      </Snackbar>
+      <PlanRecipeDialog
+        open={Boolean(plannerTarget)}
+        recipe={plannerTarget ?? undefined}
+        defaultDate={isoDate(new Date())}
+        onClose={() => setPlannerTarget(null)}
+        onPlanned={(title) => setPlannerNotice(t('planner.added', { title }))}
+      />
+
+      <Snackbar
+        open={plannerNotice !== null}
+        autoHideDuration={5000}
+        onClose={() => setPlannerNotice(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity="success"
+          onClose={() => setPlannerNotice(null)}
+          action={
+            <Button color="inherit" size="small" onClick={() => router.push('/planner')}>
+              {t('planner.viewPlan')}
+            </Button>
+          }
+        >
+          {plannerNotice}
         </Alert>
       </Snackbar>
     </>

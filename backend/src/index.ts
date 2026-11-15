@@ -6,6 +6,7 @@ import ingredientsRouter from './routes/ingredients.js';
 import tagsRouter from './routes/tags.js';
 import groceryRouter from './routes/grocery.js';
 import plannedRouter from './routes/planned.js';
+import mealPlansRouter from './routes/mealPlans.js';
 import shareRouter from './routes/share.js';
 import imagesRouter from './routes/images.js';
 
@@ -31,6 +32,7 @@ app.use('/api/ingredients', ingredientsRouter);
 app.use('/api/tags', tagsRouter);
 app.use('/api/grocery', groceryRouter);
 app.use('/api/planned', plannedRouter);
+app.use('/api/meal-plans', mealPlansRouter);
 app.use('/api/share', shareRouter);
 app.use('/api/images', imagesRouter);
 

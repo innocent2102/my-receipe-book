@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkRemoveIcon from '@mui/icons-material/BookmarkRemove';
+import EventNoteIcon from '@mui/icons-material/EventNote';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -149,6 +150,15 @@ export default function PlannedPage() {
             {t('planned.title')}
           </Typography>
           <OfflineIndicator online={online} />
+          <Tooltip title={t('planner.title')}>
+            <IconButton
+              color="inherit"
+              aria-label={t('planner.openAria')}
+              onClick={() => router.push('/planner')}
+            >
+              <EventNoteIcon />
+            </IconButton>
+          </Tooltip>
           <Tooltip title={t('grocery.openAria')}>
             <IconButton
               color="inherit"

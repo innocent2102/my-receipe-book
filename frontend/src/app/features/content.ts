@@ -92,6 +92,19 @@ const en: FeatureSection[] = [
     ],
   },
   {
+    id: 'planner',
+    title: 'Meal planner',
+    summary: 'Decide what you cook on which day.',
+    items: [
+      'A week at a glance, Monday to Sunday, with today highlighted.',
+      'Put any recipe on a day, with an optional time, from the planner or from a recipe row.',
+      'Remove a meal or jump straight to the recipe from the plan.',
+      'Browse previous and next weeks, and come back to this week with one click.',
+      'Add any planned meal to Google Calendar — the event opens pre-filled with the time and a link back to the recipe, and no calendar permissions are needed.',
+      'The last loaded week stays readable offline.',
+    ],
+  },
+  {
     id: 'sharing',
     title: 'Sharing',
     summary: 'Send a recipe to someone, on your terms.',
@@ -227,6 +240,19 @@ const pl: FeatureSection[] = [
       'Oznacz przepis jako zaplanowany z listy lub z samego przepisu.',
       'Zobacz wszystkie plany na jednej stronie, od najnowszych.',
       'Usuń przepis z planów, gdy już go ugotujesz.',
+    ],
+  },
+  {
+    id: 'planner',
+    title: 'Plan posiłków',
+    summary: 'Zdecyduj, co gotujesz którego dnia.',
+    items: [
+      'Cały tydzień na jednym ekranie, od poniedziałku do niedzieli, z wyróżnionym dzisiejszym dniem.',
+      'Dodaj dowolny przepis do wybranego dnia, opcjonalnie z godziną — z planu albo prosto z listy przepisów.',
+      'Usuń posiłek albo przejdź z planu wprost do przepisu.',
+      'Przeglądaj poprzednie i kolejne tygodnie, a jednym kliknięciem wróć do bieżącego.',
+      'Dodaj zaplanowany posiłek do Kalendarza Google — wydarzenie otwiera się z gotową godziną i linkiem do przepisu, bez przyznawania dostępu do kalendarza.',
+      'Ostatnio wczytany tydzień pozostaje dostępny offline.',
     ],
   },
   {

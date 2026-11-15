@@ -96,6 +96,20 @@ implementation so the list is easy to keep up to date.
 - **Planned page** showing everything you intend to cook soon, newest first, in the same layout
   as the recipe list, with its own empty state.
 
+## Meal planner
+
+- **Weekly plan** at `/planner` — a Monday-to-Sunday grid where every day lists the recipes you
+  intend to cook (`backend/src/routes/mealPlans.ts`, `frontend/src/app/planner/page.tsx`).
+- **Add a recipe to a day** from the planner itself (pick any recipe) or straight from a recipe
+  row in the list, with an optional time (`frontend/src/components/PlanRecipeDialog.tsx`).
+- **Move or remove** an entry; the same recipe can appear on as many days as you like.
+- **Week navigation** — previous / next week and a "this week" shortcut, with today highlighted.
+- **Offline copy** — the last loaded week stays readable without a connection.
+- **Add to Google Calendar** — every planned meal has a calendar button that opens Google Calendar
+  with a pre-filled event (title, date, 19:00 start by default, one hour long, a link back to the
+  recipe in the description). You save the event yourself, so the app never needs calendar
+  permissions (`frontend/src/lib/googleCalendarLink.ts`).
+
 ## Sharing
 
 - **Share a recipe behind an unguessable link** created from the recipe detail view; the recipe
@@ -184,6 +198,10 @@ All backend routes require the proxy headers and operate on the current user onl
 | GET | `/api/planned` | List planned recipes |
 | POST | `/api/planned` | Mark a recipe as planned |
 | DELETE | `/api/planned/:recipeId` | Remove a recipe from planned |
+| GET | `/api/meal-plans` | Meal plan entries in a `from`/`to` date range |
+| POST | `/api/meal-plans` | Put a recipe on a day |
+| PUT | `/api/meal-plans/:id` | Move an entry to another day or time |
+| DELETE | `/api/meal-plans/:id` | Remove an entry from the plan |
 | POST | `/api/share` | Publish a recipe and return its link token |
 | GET | `/api/share/recipe/:recipeId` | Current link token, or `null` |
 | DELETE | `/api/share/recipe/:recipeId` | Stop sharing a recipe |

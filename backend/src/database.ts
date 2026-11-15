@@ -210,15 +210,29 @@ export async function initDatabase() {
       )
     `);
 
-    // Create meal_plans table
+    // Meal planner: one row per recipe placed on a calendar day. The original table
+    // was never written to, so a legacy row set (no user_id) is simply rebuilt.
+    const mealPlanColumns = db
+      .prepare(`PRAGMA table_info(meal_plans)`)
+      .all() as { name: string }[];
+    if (mealPlanColumns.length > 0 && !mealPlanColumns.some((c) => c.name === 'user_id')) {
+      db.exec(`DROP TABLE meal_plans`);
+    }
+
     db.exec(`
       CREATE TABLE IF NOT EXISTS meal_plans (
         id TEXT PRIMARY KEY,
-        date TEXT NOT NULL,
+        user_id TEXT NOT NULL,
         recipe_id TEXT NOT NULL,
-        meal_type TEXT NOT NULL CHECK(meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
+        date TEXT NOT NULL,
+        time TEXT,
+        created_at TEXT NOT NULL,
         FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
       )
+    `);
+
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_meal_plans_user_date ON meal_plans(user_id, date)
     `);
 
     seedTagsFromRecipes(db);
