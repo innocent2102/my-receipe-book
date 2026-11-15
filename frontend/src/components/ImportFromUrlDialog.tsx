@@ -2,6 +2,7 @@
 
 import {
   Alert,
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -19,6 +20,7 @@ import { useState } from 'react';
 import { useTranslation } from '../i18n/LanguageProvider';
 import { saveImportDraft, type ImportedRecipeDraft } from '../lib/importDraft';
 import type { TranslationKey } from '../i18n/translations';
+import { RecipeThumbnail } from './RecipeThumbnail';
 
 type Props = {
   open: boolean;
@@ -148,15 +150,20 @@ export function ImportFromUrlDialog({ open, onClose }: Props) {
 
         {draft ? (
           <Stack spacing={0.5} sx={{ mt: 3 }}>
-            <Typography variant="h6" component="p">
-              {draft.title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t('urlImport.summary', {
-                ingredients: draft.ingredients.length,
-                steps: draft.instructions.length,
-              })}
-            </Typography>
+            <Stack direction="row" spacing={2} alignItems="flex-start">
+              <RecipeThumbnail imageUrl={draft.imageUrl} alt={draft.title} size={72} />
+              <Box>
+                <Typography variant="h6" component="p">
+                  {draft.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {t('urlImport.summary', {
+                    ingredients: draft.ingredients.length,
+                    steps: draft.instructions.length,
+                  })}
+                </Typography>
+              </Box>
+            </Stack>
             <Alert severity="info" sx={{ mt: 1 }}>
               {t('urlImport.reviewHint')}
             </Alert>

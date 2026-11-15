@@ -19,6 +19,7 @@ export type ExportRecipe = {
   servings?: number;
   tags?: string[];
   videoUrl?: string;
+  imageUrl?: string;
 };
 
 export type RecipeExportFile = {
@@ -38,6 +39,7 @@ type SourceRecipe = {
   servings?: number;
   tags?: string[];
   videoUrl?: string;
+  imageUrl?: string;
 };
 
 /** Strips ids/ownership/timestamps so the file is portable across accounts. */
@@ -56,6 +58,9 @@ export function toExportRecipe(recipe: SourceRecipe): ExportRecipe {
     ...(recipe.servings != null ? { servings: recipe.servings } : {}),
     ...(recipe.tags && recipe.tags.length > 0 ? { tags: recipe.tags } : {}),
     ...(recipe.videoUrl ? { videoUrl: recipe.videoUrl } : {}),
+    // Uploaded photos live behind a local id, which means nothing on another install;
+    // only absolute addresses survive the round trip.
+    ...(/^https?:\/\//i.test(recipe.imageUrl ?? '') ? { imageUrl: recipe.imageUrl } : {}),
   };
 }
 

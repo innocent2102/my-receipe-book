@@ -57,6 +57,18 @@ const en: FeatureSection[] = [
     ],
   },
   {
+    id: 'photos',
+    title: 'Photos',
+    summary: 'Recognise a recipe at a glance.',
+    items: [
+      'Give a recipe a photo by pasting a link or uploading one from your device.',
+      'Paste a copied picture with Ctrl+V, or drop an image file onto the photo area.',
+      'Thumbnails appear in your recipe list, in planned recipes and on shared links.',
+      'Recipes without a photo get a neutral placeholder, so the list stays tidy.',
+      'Recipes imported from a website arrive with the original photo already attached.',
+    ],
+  },
+  {
     id: 'grocery',
     title: 'Shopping list',
     summary: 'From recipe to shop without retyping anything.',
@@ -179,6 +191,18 @@ const pl: FeatureSection[] = [
       'Dodaj opcjonalny link do YouTube w przepisie.',
       'Link jest sprawdzany podczas wpisywania i pokazywany w podglądzie formularza.',
       'Film odtwarza się bezpośrednio w przepisie.',
+    ],
+  },
+  {
+    id: 'photos',
+    title: 'Zdjęcia',
+    summary: 'Rozpoznaj przepis na pierwszy rzut oka.',
+    items: [
+      'Dodaj zdjęcie przepisu, wklejając link albo wgrywając plik z urządzenia.',
+      'Wklej skopiowany obrazek skrótem Ctrl+V albo przeciągnij plik na obszar zdjęcia.',
+      'Miniatury widać na liście przepisów, w zaplanowanych i w udostępnionych linkach.',
+      'Przepisy bez zdjęcia dostają neutralną ikonę, więc lista pozostaje czytelna.',
+      'Przepisy zaimportowane ze strony mają od razu dołączone oryginalne zdjęcie.',
     ],
   },
   {

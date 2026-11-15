@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import type { ReactNode } from 'react';
 import { useTranslation } from '../i18n/LanguageProvider';
+import { RecipeThumbnail } from './RecipeThumbnail';
 
 export type RecipeSummary = {
   id: string;
@@ -23,6 +24,7 @@ export type RecipeSummary = {
   cookTime?: number;
   servings?: number;
   tags?: string[];
+  imageUrl?: string;
 };
 
 /** Comma-separated ingredient names for the compact row summary. */
@@ -64,8 +66,9 @@ export function RecipeRows({ recipes, onOpen, renderActions, actionsSpacing = 20
               <ListItemButton
                 alignItems="flex-start"
                 onClick={() => onOpen(recipe)}
-                sx={{ py: 2, px: 3, pr: actionsSpacing }}
+                sx={{ py: 2, px: 3, pr: actionsSpacing, gap: 2 }}
               >
+                <RecipeThumbnail imageUrl={recipe.imageUrl} alt={recipe.title} size={64} />
                 <ListItemText
                   primary={recipe.title}
                   primaryTypographyProps={{ variant: 'h6', component: 'div' }}

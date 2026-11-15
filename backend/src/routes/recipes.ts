@@ -4,6 +4,7 @@ import { getDatabase, isDbAvailable } from '../database.js';
 import { requireRecipeUser } from '../recipeAuth.js';
 import { rememberIngredientNames } from '../ingredientCatalog.js';
 import { importRecipeFromUrl, isImportError } from '../recipeImport/index.js';
+import { deleteUnusedImage, imageIdFromUrl } from './images.js';
 
 const router = Router();
 
@@ -21,6 +22,7 @@ export type RecipeRow = {
   tags: string | null;
   video_url: string | null;
   source_url: string | null;
+  image_url: string | null;
   user_id: string | null;
   created_at: string;
   updated_at: string;
@@ -62,6 +64,7 @@ export type RecipeInput = {
   tags?: unknown;
   videoUrl?: unknown;
   sourceUrl?: unknown;
+  imageUrl?: unknown;
 };
 
 type NormalizedRecipe = {
@@ -73,6 +76,7 @@ type NormalizedRecipe = {
   tags: string | null;
   videoUrl: string | null;
   sourceUrl: string | null;
+  imageUrl: string | null;
   ingredients: { name: string; amount: number; unit: string }[];
   instructions: string[];
 };
@@ -106,6 +110,25 @@ function normalizeVideoUrl(value: unknown): string | null {
 function normalizeSourceUrl(value: unknown): string | null {
   const raw = typeof value === 'string' ? value.trim() : '';
   if (!raw) return null;
+
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A recipe photo is either an uploaded image (`/api/images/<id>`) or an http(s) address
+ * taken from the page a recipe was imported from.
+ */
+function normalizeImageUrl(value: unknown): string | null {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return null;
+
+  if (imageIdFromUrl(raw)) return raw;
 
   try {
     const parsed = new URL(raw);
@@ -162,6 +185,7 @@ function normalizeRecipeInput(raw: RecipeInput): NormalizedRecipe | null {
     tags: tags.length > 0 ? JSON.stringify(tags) : null,
     videoUrl: normalizeVideoUrl(raw.videoUrl),
     sourceUrl: normalizeSourceUrl(raw.sourceUrl),
+    imageUrl: normalizeImageUrl(raw.imageUrl),
     ingredients,
     instructions,
   };
@@ -170,8 +194,8 @@ function normalizeRecipeInput(raw: RecipeInput): NormalizedRecipe | null {
 function recipeInsertStatements(db: Database) {
   return {
     recipe: db.prepare(`
-      INSERT INTO recipes (id, title, description, prep_time, cook_time, servings, tags, video_url, source_url, user_id, created_at, updated_at)
-      VALUES (@id, @title, @description, @prep_time, @cook_time, @servings, @tags, @video_url, @source_url, @user_id, @created_at, @updated_at)
+      INSERT INTO recipes (id, title, description, prep_time, cook_time, servings, tags, video_url, source_url, image_url, user_id, created_at, updated_at)
+      VALUES (@id, @title, @description, @prep_time, @cook_time, @servings, @tags, @video_url, @source_url, @image_url, @user_id, @created_at, @updated_at)
     `),
     ingredient: db.prepare(`
       INSERT INTO ingredients (id, recipe_id, name, amount, unit)
@@ -204,6 +228,7 @@ function insertRecipe(
     tags: recipe.tags,
     video_url: recipe.videoUrl,
     source_url: recipe.sourceUrl,
+    image_url: recipe.imageUrl,
     user_id: userId,
     created_at: now,
     updated_at: now,
@@ -251,6 +276,7 @@ function updateRecipe(
          tags = @tags,
          video_url = @video_url,
          source_url = @source_url,
+         image_url = @image_url,
          user_id = @user_id,
          updated_at = @updated_at
      WHERE id = @id`
@@ -264,6 +290,7 @@ function updateRecipe(
     tags: recipe.tags,
     video_url: recipe.videoUrl,
     source_url: recipe.sourceUrl,
+    image_url: recipe.imageUrl,
     // Claims ownership of legacy rows that had no user_id.
     user_id: userId,
     updated_at: new Date().toISOString(),
@@ -325,6 +352,7 @@ export function loadRecipeDetail(db: Database, recipeId: string) {
     tags: parseTags(row.tags),
     videoUrl: row.video_url ?? undefined,
     sourceUrl: row.source_url ?? undefined,
+    imageUrl: row.image_url ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -414,6 +442,7 @@ export function toRecipeSummaries(db: Database, recipes: RecipeRow[]) {
       tags: parseTags(r.tags),
       videoUrl: r.video_url ?? undefined,
       sourceUrl: r.source_url ?? undefined,
+      imageUrl: r.image_url ?? undefined,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     };
@@ -637,9 +666,17 @@ router.put('/:id', (req, res) => {
   }
 
   const statements = recipeInsertStatements(db);
+  const previousImage = (
+    db.prepare('SELECT image_url FROM recipes WHERE id = ?').get(ownedId) as
+      | { image_url: string | null }
+      | undefined
+  )?.image_url;
 
   try {
     db.transaction(() => updateRecipe(db, statements, userId, ownedId, normalized))();
+    if (previousImage && previousImage !== normalized.imageUrl) {
+      deleteUnusedImage(db, previousImage);
+    }
   } catch (e) {
     console.error('Failed to update recipe:', e);
     return res.status(500).json({ success: false, error: 'Failed to update recipe' });
@@ -662,6 +699,9 @@ router.delete('/:id', (req, res) => {
   }
 
   const db = getDatabase() as Database;
+  const existing = db.prepare('SELECT image_url FROM recipes WHERE id = ?').get(id) as
+    | { image_url: string | null }
+    | undefined;
   const result = db
     .prepare(
       `DELETE FROM recipes
@@ -673,6 +713,8 @@ router.delete('/:id', (req, res) => {
   if (result.changes === 0) {
     return res.status(404).json({ success: false, error: 'Recipe not found' });
   }
+
+  deleteUnusedImage(db, existing?.image_url);
 
   return res.json({ success: true });
 });

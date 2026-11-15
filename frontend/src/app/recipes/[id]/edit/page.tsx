@@ -33,6 +33,7 @@ type RecipeDetail = {
   servings?: number;
   tags?: string[];
   videoUrl?: string;
+  imageUrl?: string;
 };
 
 export default function EditRecipePage() {
@@ -90,6 +91,7 @@ export default function EditRecipePage() {
         servings: recipe.servings,
         tags: recipe.tags ?? [],
         videoUrl: recipe.videoUrl,
+        imageUrl: recipe.imageUrl,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : t('detail.loadError'));

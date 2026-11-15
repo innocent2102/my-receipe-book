@@ -14,6 +14,7 @@ export type RecipeDraft = {
   servings?: number;
   tags?: string[];
   videoUrl?: string;
+  imageUrl?: string;
   sourceUrl: string;
 };
 
@@ -163,6 +164,34 @@ function parseVideoUrl(value: unknown): string | undefined {
   return undefined;
 }
 
+/**
+ * Recipe photo. Schema.org allows a plain URL, an ImageObject or a list of either,
+ * so every shape is tried before giving up. Relative paths are resolved against the page.
+ */
+function parseImageUrl(value: unknown, sourceUrl: string): string | undefined {
+  for (const entry of asArray(value)) {
+    let candidate = '';
+    if (typeof entry === 'string') {
+      candidate = entry.trim();
+    } else if (entry && typeof entry === 'object') {
+      const node = entry as Record<string, unknown>;
+      const url = node.url ?? node.contentUrl ?? node['@id'];
+      candidate = typeof url === 'string' ? url.trim() : '';
+    }
+    if (!candidate) continue;
+
+    try {
+      const resolved = new URL(decodeEntities(candidate), sourceUrl);
+      if (resolved.protocol === 'http:' || resolved.protocol === 'https:') {
+        return resolved.toString();
+      }
+    } catch {
+      // Not a usable address - keep looking.
+    }
+  }
+  return undefined;
+}
+
 /** Shared tail of both extractors: a total-only time still has to add up correctly. */
 function buildDraft(parts: {
   title: string;
@@ -175,6 +204,7 @@ function buildDraft(parts: {
   servings?: number;
   tags: string[];
   videoUrl?: string;
+  imageUrl?: string;
   sourceUrl: string;
 }): RecipeDraft | null {
   const ingredients = parseIngredientLines(parts.ingredientLines.slice(0, MAX_INGREDIENTS));
@@ -192,6 +222,7 @@ function buildDraft(parts: {
     servings: parts.servings,
     tags: parts.tags.length > 0 ? parts.tags : undefined,
     videoUrl: parts.videoUrl,
+    imageUrl: parts.imageUrl,
     sourceUrl: parts.sourceUrl,
   };
 }
@@ -224,6 +255,7 @@ function draftFromJsonLd(html: string, sourceUrl: string): RecipeDraft | null {
       ...asArray(node.keywords),
     ]),
     videoUrl: parseVideoUrl(node.video),
+    imageUrl: parseImageUrl(node.image ?? node.thumbnailUrl, sourceUrl),
     sourceUrl,
   });
 }
@@ -264,6 +296,7 @@ function draftFromMicrodata(html: string, sourceUrl: string): RecipeDraft | null
       ...(props.recipeCuisine ?? []),
       ...(props.keywords ?? []),
     ]),
+    imageUrl: parseImageUrl(props.image ?? props.thumbnailUrl, sourceUrl),
     sourceUrl,
   });
 }
@@ -280,6 +313,7 @@ function draftFromMarkup(html: string, sourceUrl: string): RecipeDraft | null {
     instructions: found.instructions.slice(0, MAX_INSTRUCTIONS),
     servings: found.servings,
     tags: [],
+    imageUrl: parseImageUrl(found.imageUrl, sourceUrl),
     sourceUrl,
   });
 }
@@ -290,11 +324,24 @@ function draftFromMarkup(html: string, sourceUrl: string): RecipeDraft | null {
  * extractor would be plugged in.
  */
 export function extractRecipeDraft(html: string, sourceUrl: string): RecipeDraft | null {
-  return (
+  const draft =
     draftFromJsonLd(html, sourceUrl) ??
     draftFromMicrodata(html, sourceUrl) ??
-    draftFromMarkup(html, sourceUrl)
+    draftFromMarkup(html, sourceUrl);
+
+  // Structured data does not always name a photo, but the page's social preview does.
+  if (draft && !draft.imageUrl) {
+    draft.imageUrl = parseImageUrl(readOpenGraphImage(html), sourceUrl);
+  }
+
+  return draft;
+}
+
+function readOpenGraphImage(html: string): string | undefined {
+  const match = html.match(
+    /<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]*>/i
   );
+  return match?.[0].match(/content=["']([^"']+)["']/i)?.[1];
 }
 
 /** Thrown when a page simply has no machine-readable recipe on it. */

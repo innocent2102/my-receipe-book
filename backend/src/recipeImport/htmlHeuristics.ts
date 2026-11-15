@@ -73,6 +73,7 @@ export type HeuristicRecipe = {
   ingredientLines: string[];
   instructions: string[];
   servings?: number;
+  imageUrl?: string;
 };
 
 /** Returns null unless both a title and an ingredient list could be found. */
@@ -93,5 +94,6 @@ export function extractRecipeFromMarkup(html: string): HeuristicRecipe | null {
     ingredientLines,
     instructions: bestLines($, INSTRUCTION_SELECTOR, MAX_LINE_LENGTH * 4),
     servings: readServings($('body').text()),
+    imageUrl: metaContent($, ['og:image', 'twitter:image']) || undefined,
   };
 }

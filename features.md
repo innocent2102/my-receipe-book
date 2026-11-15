@@ -58,6 +58,20 @@ implementation so the list is easy to keep up to date.
 - **Optional YouTube link per recipe**, validated on input and embedded in the recipe detail
   page with a live preview in the form (`frontend/src/lib/youtube.ts`).
 
+## Photos
+
+- **A photo per recipe** — paste a link, paste a copied picture (Ctrl+V), drop a file onto the
+  photo area or upload one from your device
+  (`frontend/src/components/RecipeForm.tsx`, `frontend/src/lib/recipeImage.ts`).
+- **Uploads are stored in the database** (table `recipe_images`, max 4 MB, JPG/PNG/WebP/GIF) and
+  served from `/api/images/<id>`; the unguessable id is what protects the file, so shared
+  recipes keep their photo without a sign-in (`backend/src/routes/images.ts`).
+- **Thumbnails with a neutral placeholder** in the recipe list, the planned list, the import
+  preview and the recipe page (`frontend/src/components/RecipeThumbnail.tsx`).
+- **Imported recipes pick up the site's photo** from JSON-LD, microdata or the page's
+  `og:image`, so a link import arrives with a picture already attached.
+- **Replaced and deleted photos are cleaned up** once no recipe points at them any more.
+
 ## Shopping list
 
 - **One shopping list per user**, created automatically on first use
@@ -168,6 +182,8 @@ All backend routes require the proxy headers and operate on the current user onl
 | DELETE | `/api/share/recipe/:recipeId` | Stop sharing a recipe |
 | GET | `/api/share/view/:token` | Read a shared recipe (no sign-in required) |
 | POST | `/api/share/view/:token/import` | Save a shared recipe to your own book |
+| POST | `/api/images` | Upload a recipe photo (raw image bytes) |
+| GET | `/api/images/:id` | Read an uploaded photo (no sign-in required) |
 
 The matching Next.js proxy routes live in `frontend/src/app/api/`.
 
@@ -175,7 +191,7 @@ The matching Next.js proxy routes live in `frontend/src/app/api/`.
 
 - **SQLite storage** with foreign keys enabled and tables created/migrated on startup:
   `recipes`, `ingredients`, `instructions`, `ingredient_catalog`, `grocery_lists`,
-  `grocery_items`, `planned_recipes`, `recipe_shares`, `meal_plans`
+  `grocery_items`, `planned_recipes`, `recipe_shares`, `recipe_images`, `meal_plans`
   (`backend/src/database.ts`).
 - **Graceful degradation** — if `better-sqlite3` cannot be loaded, the server still starts and
   database-backed endpoints return `503` with a clear message instead of crashing.
