@@ -1,5 +1,6 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { seedTagsFromRecipes } from './tagCatalog.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -106,6 +107,22 @@ export async function initDatabase() {
       ON ingredient_catalog (user_id, name_key)
     `);
 
+    // Create tag_catalog table (known recipe tags per user, for autocomplete)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS tag_catalog (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        name_key TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
+
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_tag_catalog_user_name
+      ON tag_catalog (user_id, name_key)
+    `);
+
     // Create instructions table
     db.exec(`
       CREATE TABLE IF NOT EXISTS instructions (
@@ -204,9 +221,10 @@ export async function initDatabase() {
       )
     `);
 
+    seedTagsFromRecipes(db);
+
     console.log('✅ Database initialized successfully');
-    return true;
-  } catch (error: any) {
+    return true;  } catch (error: any) {
     console.error('❌ Database initialization failed:', error.message);
     return false;
   }

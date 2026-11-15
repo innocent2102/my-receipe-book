@@ -37,12 +37,13 @@ const en: FeatureSection[] = [
   },
   {
     id: 'ingredients',
-    title: 'Ingredient suggestions',
-    summary: 'The app learns the ingredients you use.',
+    title: 'Ingredient & tag suggestions',
+    summary: 'The app learns the ingredients and tags you use.',
     items: [
       'Every ingredient you save is remembered and suggested the next time you type.',
       'Pick an ingredient from the list or simply type a new one — new names are added automatically.',
       'Spelling and capitalisation differences are merged, so each ingredient appears only once.',
+      'Tags work the same way: pick one of your previous tags or type a new one.',
       'Remove a suggestion you no longer need.',
     ],
   },
@@ -174,12 +175,13 @@ const pl: FeatureSection[] = [
   },
   {
     id: 'ingredients',
-    title: 'Podpowiedzi składników',
-    summary: 'Aplikacja zapamiętuje składniki, których używasz.',
+    title: 'Podpowiedzi składników i tagów',
+    summary: 'Aplikacja zapamiętuje składniki i tagi, których używasz.',
     items: [
       'Każdy zapisany składnik jest zapamiętywany i podpowiadany przy kolejnym wpisywaniu.',
       'Wybierz składnik z listy albo wpisz nowy — nowe nazwy dodają się automatycznie.',
       'Różnice w pisowni i wielkości liter są scalane, więc każdy składnik pojawia się tylko raz.',
+      'Tagi działają tak samo: wybierz jeden z wcześniej użytych albo wpisz nowy.',
       'Usuń podpowiedź, której już nie potrzebujesz.',
     ],
   },

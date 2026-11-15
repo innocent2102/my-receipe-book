@@ -3,6 +3,7 @@ import cors from 'cors';
 import { initDatabase, isDbAvailable } from './database.js';
 import recipesRouter from './routes/recipes.js';
 import ingredientsRouter from './routes/ingredients.js';
+import tagsRouter from './routes/tags.js';
 import groceryRouter from './routes/grocery.js';
 import plannedRouter from './routes/planned.js';
 import shareRouter from './routes/share.js';
@@ -27,6 +28,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/recipes', recipesRouter);
 app.use('/api/ingredients', ingredientsRouter);
+app.use('/api/tags', tagsRouter);
 app.use('/api/grocery', groceryRouter);
 app.use('/api/planned', plannedRouter);
 app.use('/api/share', shareRouter);
