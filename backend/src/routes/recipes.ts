@@ -3,6 +3,7 @@ import type { Database } from 'better-sqlite3';
 import { getDatabase, isDbAvailable } from '../database.js';
 import { requireRecipeUser } from '../recipeAuth.js';
 import { rememberIngredientNames } from '../ingredientCatalog.js';
+import { importRecipeFromUrl, isImportError } from '../recipeImport/index.js';
 
 const router = Router();
 
@@ -19,6 +20,7 @@ export type RecipeRow = {
   servings: number | null;
   tags: string | null;
   video_url: string | null;
+  source_url: string | null;
   user_id: string | null;
   created_at: string;
   updated_at: string;
@@ -59,6 +61,7 @@ export type RecipeInput = {
   servings?: unknown;
   tags?: unknown;
   videoUrl?: unknown;
+  sourceUrl?: unknown;
 };
 
 type NormalizedRecipe = {
@@ -69,6 +72,7 @@ type NormalizedRecipe = {
   servings: number | null;
   tags: string | null;
   videoUrl: string | null;
+  sourceUrl: string | null;
   ingredients: { name: string; amount: number; unit: string }[];
   instructions: string[];
 };
@@ -98,8 +102,21 @@ function normalizeVideoUrl(value: unknown): string | null {
   return isYouTube ? raw : null;
 }
 
-function toOptionalNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
+/** Where an imported recipe came from. Only http(s) links are kept. */
+function normalizeSourceUrl(value: unknown): string | null {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return null;
+
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function toOptionalNumber(value: unknown): number | null {  if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value);
     if (Number.isFinite(parsed)) return parsed;
@@ -144,6 +161,7 @@ function normalizeRecipeInput(raw: RecipeInput): NormalizedRecipe | null {
     servings: toOptionalNumber(raw.servings),
     tags: tags.length > 0 ? JSON.stringify(tags) : null,
     videoUrl: normalizeVideoUrl(raw.videoUrl),
+    sourceUrl: normalizeSourceUrl(raw.sourceUrl),
     ingredients,
     instructions,
   };
@@ -152,8 +170,8 @@ function normalizeRecipeInput(raw: RecipeInput): NormalizedRecipe | null {
 function recipeInsertStatements(db: Database) {
   return {
     recipe: db.prepare(`
-      INSERT INTO recipes (id, title, description, prep_time, cook_time, servings, tags, video_url, user_id, created_at, updated_at)
-      VALUES (@id, @title, @description, @prep_time, @cook_time, @servings, @tags, @video_url, @user_id, @created_at, @updated_at)
+      INSERT INTO recipes (id, title, description, prep_time, cook_time, servings, tags, video_url, source_url, user_id, created_at, updated_at)
+      VALUES (@id, @title, @description, @prep_time, @cook_time, @servings, @tags, @video_url, @source_url, @user_id, @created_at, @updated_at)
     `),
     ingredient: db.prepare(`
       INSERT INTO ingredients (id, recipe_id, name, amount, unit)
@@ -185,6 +203,7 @@ function insertRecipe(
     servings: recipe.servings,
     tags: recipe.tags,
     video_url: recipe.videoUrl,
+    source_url: recipe.sourceUrl,
     user_id: userId,
     created_at: now,
     updated_at: now,
@@ -231,6 +250,7 @@ function updateRecipe(
          servings = @servings,
          tags = @tags,
          video_url = @video_url,
+         source_url = @source_url,
          user_id = @user_id,
          updated_at = @updated_at
      WHERE id = @id`
@@ -243,6 +263,7 @@ function updateRecipe(
     servings: recipe.servings,
     tags: recipe.tags,
     video_url: recipe.videoUrl,
+    source_url: recipe.sourceUrl,
     // Claims ownership of legacy rows that had no user_id.
     user_id: userId,
     updated_at: new Date().toISOString(),
@@ -303,6 +324,7 @@ export function loadRecipeDetail(db: Database, recipeId: string) {
     servings: row.servings ?? undefined,
     tags: parseTags(row.tags),
     videoUrl: row.video_url ?? undefined,
+    sourceUrl: row.source_url ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -391,6 +413,7 @@ export function toRecipeSummaries(db: Database, recipes: RecipeRow[]) {
       servings: r.servings ?? undefined,
       tags: parseTags(r.tags),
       videoUrl: r.video_url ?? undefined,
+      sourceUrl: r.source_url ?? undefined,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     };
@@ -460,6 +483,60 @@ router.post('/', (req, res) => {
 });
 
 const MAX_IMPORT_RECIPES = 500;
+
+/** Per-user throttle: importing hits third-party sites, so keep it modest. */
+const urlImportHits = new Map<string, number[]>();
+const URL_IMPORT_WINDOW_MS = 60_000;
+const URL_IMPORT_LIMIT = 10;
+
+function urlImportAllowed(userId: string): boolean {
+  const now = Date.now();
+  const recent = (urlImportHits.get(userId) ?? []).filter(
+    (at) => now - at < URL_IMPORT_WINDOW_MS
+  );
+  if (recent.length >= URL_IMPORT_LIMIT) {
+    urlImportHits.set(userId, recent);
+    return false;
+  }
+  recent.push(now);
+  urlImportHits.set(userId, recent);
+  return true;
+}
+
+/**
+ * Converts a recipe page into a draft. Nothing is saved: the user reviews and
+ * corrects the result in the normal recipe form before it becomes a recipe.
+ */
+router.post('/from-url', async (req, res) => {
+  const userId = requireRecipeUser(req, res);
+  if (!userId) return;
+
+  const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+  if (!url) {
+    return res.status(400).json({ success: false, error: 'Missing url', code: 'missing_url' });
+  }
+
+  if (!urlImportAllowed(userId)) {
+    return res.status(429).json({
+      success: false,
+      error: 'Too many imports in a short time. Try again in a minute.',
+      code: 'rate_limited',
+    });
+  }
+
+  try {
+    const draft = await importRecipeFromUrl(url);
+    return res.json({ success: true, data: draft });
+  } catch (e) {
+    if (isImportError(e)) {
+      return res.status(e.status).json({ success: false, error: e.message, code: e.code });
+    }
+    console.error('Failed to import recipe from url:', e);
+    return res
+      .status(500)
+      .json({ success: false, error: 'Failed to import the recipe', code: 'unknown' });
+  }
+});
 
 /** Bulk import. Accepts the export envelope `{ recipes: [...] }` or a bare array. */
 router.post('/import', (req, res) => {

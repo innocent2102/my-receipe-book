@@ -54,6 +54,7 @@ export async function initDatabase() {
         servings INTEGER,
         tags TEXT,
         video_url TEXT,
+        source_url TEXT,
         user_id TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
@@ -68,6 +69,9 @@ export async function initDatabase() {
     }
     if (!recipeColumns.some((c) => c.name === 'video_url')) {
       db.exec(`ALTER TABLE recipes ADD COLUMN video_url TEXT`);
+    }
+    if (!recipeColumns.some((c) => c.name === 'source_url')) {
+      db.exec(`ALTER TABLE recipes ADD COLUMN source_url TEXT`);
     }
 
     // Create ingredients table

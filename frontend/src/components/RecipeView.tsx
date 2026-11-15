@@ -4,6 +4,7 @@ import {
   Box,
   Chip,
   Divider,
+  Link,
   List,
   ListItem,
   ListItemText,
@@ -32,6 +33,7 @@ export type RecipeViewData = {
   servings?: number;
   tags?: string[];
   videoUrl?: string;
+  sourceUrl?: string;
 };
 
 /** Read-only recipe body, shared by the detail page and public share links. */
@@ -144,6 +146,23 @@ export function RecipeView({ recipe }: { recipe: RecipeViewData }) {
               </Box>
             ))}
           </Box>
+        </>
+      ) : null}
+
+      {recipe.sourceUrl ? (
+        <>
+          <Divider sx={{ my: 3 }} />
+          <Typography variant="body2" color="text.secondary">
+            {t('recipe.source')}:{' '}
+            <Link
+              href={recipe.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              title={t('recipe.sourceOpen')}
+            >
+              {recipe.sourceUrl}
+            </Link>
+          </Typography>
         </>
       ) : null}
     </Paper>

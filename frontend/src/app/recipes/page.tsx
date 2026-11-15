@@ -38,10 +38,12 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import BookmarkAddOutlinedIcon from '@mui/icons-material/BookmarkAddOutlined';
 import BookmarksIcon from '@mui/icons-material/Bookmarks';
+import AddLinkIcon from '@mui/icons-material/AddLink';
 import {
   AddToGroceryDialog,
   groceryCandidates,
 } from '../../components/AddToGroceryDialog';
+import { ImportFromUrlDialog } from '../../components/ImportFromUrlDialog';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { LanguageToggle } from '../../components/LanguageToggle';
 import { UserMenu } from '../../components/UserMenu';
@@ -90,6 +92,7 @@ export default function RecipesPage() {
   const [groceryAdded, setGroceryAdded] = useState<number | null>(null);
   const [usingOfflineCopy, setUsingOfflineCopy] = useState(false);
   const [plannedIds, setPlannedIds] = useState<Set<string>>(new Set());
+  const [urlImportOpen, setUrlImportOpen] = useState(false);
 
   /** All whitespace-separated terms must match, so extra words narrow the list. */
   const filteredRecipes = useMemo(() => {
@@ -317,6 +320,18 @@ export default function RecipesPage() {
                 disabled={!online}
               >
                 <AddIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={t('urlImport.action')}>
+            <span>
+              <IconButton
+                color="inherit"
+                aria-label={t('urlImport.action')}
+                onClick={() => setUrlImportOpen(true)}
+                disabled={!online}
+              >
+                <AddLinkIcon />
               </IconButton>
             </span>
           </Tooltip>
@@ -566,6 +581,8 @@ export default function RecipesPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ImportFromUrlDialog open={urlImportOpen} onClose={() => setUrlImportOpen(false)} />
 
       <AddToGroceryDialog
         open={Boolean(groceryTarget)}
