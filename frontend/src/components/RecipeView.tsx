@@ -4,6 +4,7 @@ import {
   Box,
   Chip,
   Divider,
+  Link,
   List,
   ListItem,
   ListItemText,
@@ -12,6 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import { youTubeEmbedUrl } from '../lib/youtube';
+import { isDisplayableImageUrl } from '../lib/recipeImage';
 import { useTranslation } from '../i18n/LanguageProvider';
 
 export type RecipeViewIngredient = {
@@ -32,6 +34,8 @@ export type RecipeViewData = {
   servings?: number;
   tags?: string[];
   videoUrl?: string;
+  sourceUrl?: string;
+  imageUrl?: string;
 };
 
 /** Read-only recipe body, shared by the detail page and public share links. */
@@ -47,6 +51,22 @@ export function RecipeView({ recipe }: { recipe: RecipeViewData }) {
 
   return (
     <Paper elevation={2} sx={{ p: { xs: 3, sm: 4 } }}>
+      {isDisplayableImageUrl(recipe.imageUrl) ? (
+        <Box
+          component="img"
+          src={recipe.imageUrl}
+          alt={recipe.title}
+          sx={{
+            width: '100%',
+            maxHeight: 360,
+            objectFit: 'cover',
+            borderRadius: 1,
+            mb: 3,
+            display: 'block',
+          }}
+        />
+      ) : null}
+
       <Typography variant="h4" component="h1" gutterBottom>
         {recipe.title}
       </Typography>
@@ -144,6 +164,23 @@ export function RecipeView({ recipe }: { recipe: RecipeViewData }) {
               </Box>
             ))}
           </Box>
+        </>
+      ) : null}
+
+      {recipe.sourceUrl ? (
+        <>
+          <Divider sx={{ my: 3 }} />
+          <Typography variant="body2" color="text.secondary">
+            {t('recipe.source')}:{' '}
+            <Link
+              href={recipe.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              title={t('recipe.sourceOpen')}
+            >
+              {recipe.sourceUrl}
+            </Link>
+          </Typography>
         </>
       ) : null}
     </Paper>

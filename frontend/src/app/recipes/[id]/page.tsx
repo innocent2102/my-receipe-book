@@ -51,6 +51,8 @@ type RecipeDetail = {
   servings?: number;
   tags?: string[];
   videoUrl?: string;
+  imageUrl?: string;
+  sourceUrl?: string;
 };
 
 export default function RecipeDetailPage() {

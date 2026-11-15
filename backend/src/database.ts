@@ -54,6 +54,8 @@ export async function initDatabase() {
         servings INTEGER,
         tags TEXT,
         video_url TEXT,
+        source_url TEXT,
+        image_url TEXT,
         user_id TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
@@ -68,6 +70,12 @@ export async function initDatabase() {
     }
     if (!recipeColumns.some((c) => c.name === 'video_url')) {
       db.exec(`ALTER TABLE recipes ADD COLUMN video_url TEXT`);
+    }
+    if (!recipeColumns.some((c) => c.name === 'source_url')) {
+      db.exec(`ALTER TABLE recipes ADD COLUMN source_url TEXT`);
+    }
+    if (!recipeColumns.some((c) => c.name === 'image_url')) {
+      db.exec(`ALTER TABLE recipes ADD COLUMN image_url TEXT`);
     }
 
     // Create ingredients table
@@ -170,6 +178,18 @@ export async function initDatabase() {
         user_id TEXT NOT NULL,
         created_at TEXT NOT NULL,
         FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Uploaded recipe photos. Rows are kept separate from `recipes` so the list query
+    // never drags the binary data along; `image_url` points at `/api/images/<id>`.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS recipe_images (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        data BLOB NOT NULL,
+        created_at TEXT NOT NULL
       )
     `);
 

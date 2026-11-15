@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import {
@@ -19,12 +19,25 @@ import { ThemeToggle } from '../../../components/ThemeToggle';
 import { LanguageToggle } from '../../../components/LanguageToggle';
 import { UserMenu } from '../../../components/UserMenu';
 import { RecipeForm, RecipeFormValues } from '../../../components/RecipeForm';
+import { takeImportDraft, type ImportedRecipeDraft } from '../../../lib/importDraft';
 import { useTranslation } from '../../../i18n/LanguageProvider';
 
 export default function AddRecipePage() {
   const router = useRouter();
   const { status } = useSession();
   const { t } = useTranslation();
+  const [draft, setDraft] = useState<ImportedRecipeDraft | null>(null);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const draftRead = useRef(false);
+
+  // A recipe imported from a website lands here as a draft for review. Reading it
+  // clears it, so the guard keeps React's double-run of effects from losing it.
+  useEffect(() => {
+    if (draftRead.current) return;
+    draftRead.current = true;
+    setDraft(takeImportDraft());
+    setDraftLoaded(true);
+  }, []);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -36,7 +49,7 @@ export default function AddRecipePage() {
     const res = await fetch('/api/recipes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(values),
+      body: JSON.stringify({ ...values, sourceUrl: draft?.sourceUrl }),
     });
 
     const json = (await res.json().catch(() => ({}))) as {
@@ -56,7 +69,7 @@ export default function AddRecipePage() {
     router.push('/recipes');
   };
 
-  if (status === 'loading') {
+  if (status === 'loading' || !draftLoaded) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', pt: 10 }}>
         <CircularProgress />
@@ -108,6 +121,7 @@ export default function AddRecipePage() {
           </Box>
 
           <RecipeForm
+            initialValues={draft ?? undefined}
             submitLabel={t('add.save')}
             submittingLabel={t('add.saving')}
             onSubmit={handleSubmit}

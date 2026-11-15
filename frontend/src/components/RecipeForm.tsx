@@ -16,9 +16,20 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import { Ingredient, generateId } from '@my-receipe-book/shared';
 import { useTranslation } from '../i18n/LanguageProvider';
+import type { TranslationKey } from '../i18n/translations';
 import { isYouTubeUrl, youTubeEmbedUrl } from '../lib/youtube';
+import {
+  RECIPE_IMAGE_TYPES,
+  imageFileFromTransfer,
+  isDisplayableImageUrl,
+  readImageFromClipboard,
+  uploadRecipeImage,
+} from '../lib/recipeImage';
+import { RecipeThumbnail } from './RecipeThumbnail';
 
 interface InstructionItem {
   id: string;
@@ -35,6 +46,7 @@ export interface RecipeFormValues {
   servings?: number;
   tags?: string[];
   videoUrl?: string;
+  imageUrl?: string;
 }
 
 interface RecipeFormProps {
@@ -48,6 +60,13 @@ interface RecipeFormProps {
 }
 
 const normalizeIngredientName = (name: string) => name.trim().replace(/\s+/g, ' ');
+
+const IMAGE_ERROR_CODES = ['unsupported_type', 'too_large', 'empty'] as const;
+
+function imageErrorKey(code: string): TranslationKey {
+  const known = IMAGE_ERROR_CODES.find((candidate) => candidate === code);
+  return (known ? `add.imageError.${known}` : 'add.imageError.generic') as TranslationKey;
+}
 
 export function RecipeForm({
   initialValues,
@@ -71,6 +90,8 @@ export function RecipeForm({
   );
   const [tags, setTags] = useState<string[]>(initialValues?.tags ?? []);
   const [videoUrl, setVideoUrl] = useState(initialValues?.videoUrl ?? '');
+  const [imageUrl, setImageUrl] = useState(initialValues?.imageUrl ?? '');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -208,6 +229,48 @@ export function RecipeForm({
     setTags(tags.filter((tag) => tag !== tagToRemove));
   };
 
+  const handleImageFile = async (file: File | undefined) => {
+    if (!file) return;
+
+    setError(null);
+    setIsUploadingImage(true);
+    const result = await uploadRecipeImage(file);
+    setIsUploadingImage(false);
+
+    if ('url' in result) {
+      setImageUrl(result.url);
+    } else {
+      setError(t(imageErrorKey(result.errorCode)));
+    }
+  };
+
+  /** Ctrl+V of a copied picture anywhere in the photo area. Pasting a link still works. */
+  const handleImagePaste = (event: React.ClipboardEvent) => {
+    const file = imageFileFromTransfer(event.clipboardData);
+    if (!file) return;
+
+    event.preventDefault();
+    void handleImageFile(file);
+  };
+
+  const handleImageDrop = (event: React.DragEvent) => {
+    const file = imageFileFromTransfer(event.dataTransfer);
+    if (!file) return;
+
+    event.preventDefault();
+    void handleImageFile(file);
+  };
+
+  /** For users who copied a picture but are not typing in the field. */
+  const pasteImageFromClipboard = async () => {
+    const file = await readImageFromClipboard();
+    if (!file) {
+      setError(t('add.imageError.clipboard_empty'));
+      return;
+    }
+    await handleImageFile(file);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -236,6 +299,7 @@ export function RecipeForm({
         servings: servings ? Number(servings) : undefined,
         tags: tags.length > 0 ? tags : undefined,
         videoUrl: trimmedVideoUrl || undefined,
+        imageUrl: imageUrl.trim() || undefined,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('add.saveFailedGeneric'));
@@ -319,6 +383,70 @@ export function RecipeForm({
               />
             </Box>
           ) : null}
+        </Grid>
+
+        <Grid item xs={12}>
+          <Typography variant="h6" gutterBottom>
+            {t('add.image')}
+          </Typography>
+          <Box
+            onPaste={handleImagePaste}
+            onDrop={handleImageDrop}
+            onDragOver={(e) => e.preventDefault()}
+            sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: 'wrap' }}
+          >
+            <RecipeThumbnail imageUrl={imageUrl} alt={t('add.imagePreview')} size={96} />
+            <Box sx={{ flex: 1, minWidth: 240 }}>
+              <TextField
+                fullWidth
+                label={t('add.imageUrl')}
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder={t('add.imageUrlPlaceholder')}
+                error={imageUrl.trim() !== '' && !isDisplayableImageUrl(imageUrl)}
+                helperText={
+                  imageUrl.trim() !== '' && !isDisplayableImageUrl(imageUrl)
+                    ? t('add.imageUrlInvalid')
+                    : t('add.imageHelp')
+                }
+              />
+              <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                <Button
+                  component="label"
+                  variant="outlined"
+                  size="small"
+                  startIcon={<PhotoCameraIcon />}
+                  disabled={isUploadingImage}
+                >
+                  {isUploadingImage ? t('add.imageUploading') : t('add.imageUpload')}
+                  <input
+                    type="file"
+                    hidden
+                    accept={RECIPE_IMAGE_TYPES.join(',')}
+                    onChange={(e) => {
+                      void handleImageFile(e.target.files?.[0]);
+                      // Lets the user re-pick the same file after an error.
+                      e.target.value = '';
+                    }}
+                  />
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<ContentPasteIcon />}
+                  disabled={isUploadingImage}
+                  onClick={() => void pasteImageFromClipboard()}
+                >
+                  {t('add.imagePaste')}
+                </Button>
+                {imageUrl ? (
+                  <Button size="small" color="error" onClick={() => setImageUrl('')}>
+                    {t('add.imageRemove')}
+                  </Button>
+                ) : null}
+              </Box>
+            </Box>
+          </Box>
         </Grid>
 
         <Grid item xs={12} sm={4}>
