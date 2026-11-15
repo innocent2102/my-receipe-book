@@ -16,7 +16,8 @@ This project is organized as a monorepo with the following workspaces:
 
 ### Prerequisites
 
-- Node.js >= 18.0.0
+- Node.js >= 20.18.1 (required by `cheerio`/`undici`, which the recipe importer uses; the
+  repo pins Node 22 through `.nvmrc` so deployments pick the same runtime)
 - npm >= 9.0.0
 
 ### Installation
