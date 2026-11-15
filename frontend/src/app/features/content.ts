@@ -79,6 +79,17 @@ const en: FeatureSection[] = [
     ],
   },
   {
+    id: 'sharing',
+    title: 'Sharing',
+    summary: 'Send a recipe to someone, on your terms.',
+    items: [
+      'Create a private link for a recipe. Only people who have the link can open it.',
+      'Anyone with the link can read the recipe without signing in.',
+      'Signed-in visitors can save a copy to their own recipe book with one click.',
+      'Stop sharing at any time — every link you handed out stops working.',
+    ],
+  },
+  {
     id: 'backup',
     title: 'Import and export',
     summary: 'Your recipes stay yours.',
@@ -86,6 +97,10 @@ const en: FeatureSection[] = [
       'Export all recipes to a single JSON file with a date in its name.',
       'Import an exported file into any account — up to 500 recipes at a time.',
       'Invalid files are reported, recipes without a title are skipped, and you are told exactly how many were imported.',
+      'Import a recipe from a website: paste the link and the app reads the recipe from the page.',
+      'Quantities and units are recognised in Polish and English, including fractions and ranges.',
+      'The imported recipe opens as a draft in the recipe form, so you can correct anything before saving it.',
+      'The original address is saved with the recipe and shown as a source link.',
     ],
   },
   {
@@ -189,6 +204,17 @@ const pl: FeatureSection[] = [
     ],
   },
   {
+    id: 'sharing',
+    title: 'Udostępnianie',
+    summary: 'Wyślij komuś przepis na swoich zasadach.',
+    items: [
+      'Utwórz prywatny link do przepisu. Otworzy go tylko osoba, która ma ten link.',
+      'Każdy, kto ma link, może przeczytać przepis bez logowania.',
+      'Zalogowany odbiorca może jednym kliknięciem zapisać kopię w swojej książce kucharskiej.',
+      'W każdej chwili możesz zatrzymać udostępnianie — wszystkie rozesłane linki przestaną działać.',
+    ],
+  },
+  {
     id: 'backup',
     title: 'Import i eksport',
     summary: 'Twoje przepisy należą do Ciebie.',
@@ -196,6 +222,10 @@ const pl: FeatureSection[] = [
       'Wyeksportuj wszystkie przepisy do jednego pliku JSON z datą w nazwie.',
       'Zaimportuj wyeksportowany plik na dowolne konto — do 500 przepisów naraz.',
       'Niepoprawne pliki są zgłaszane, przepisy bez tytułu pomijane, a na koniec widzisz dokładne podsumowanie.',
+      'Zaimportuj przepis ze strony internetowej: wklej link, a aplikacja odczyta przepis ze strony.',
+      'Ilości i jednostki rozpoznawane są po polsku i angielsku, łącznie z ułamkami i zakresami.',
+      'Zaimportowany przepis otwiera się jako wersja robocza w formularzu, więc możesz wszystko poprawić przed zapisaniem.',
+      'Oryginalny adres zapisywany jest razem z przepisem i pokazywany jako link do źródła.',
     ],
   },
   {
