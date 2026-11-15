@@ -37,12 +37,13 @@ const en: FeatureSection[] = [
   },
   {
     id: 'ingredients',
-    title: 'Ingredient suggestions',
-    summary: 'The app learns the ingredients you use.',
+    title: 'Ingredient & tag suggestions',
+    summary: 'The app learns the ingredients and tags you use.',
     items: [
       'Every ingredient you save is remembered and suggested the next time you type.',
       'Pick an ingredient from the list or simply type a new one — new names are added automatically.',
       'Spelling and capitalisation differences are merged, so each ingredient appears only once.',
+      'Tags work the same way: pick one of your previous tags or type a new one.',
       'Remove a suggestion you no longer need.',
     ],
   },
@@ -88,6 +89,19 @@ const en: FeatureSection[] = [
       'Mark a recipe as planned from the list or from the recipe itself.',
       'See everything you plan to cook on one page, newest first.',
       'Unplan a recipe once it is cooked.',
+    ],
+  },
+  {
+    id: 'planner',
+    title: 'Meal planner',
+    summary: 'Decide what you cook on which day.',
+    items: [
+      'A week at a glance, Monday to Sunday, with today highlighted.',
+      'Put any recipe on a day, with an optional time, from the planner or from a recipe row.',
+      'Remove a meal or jump straight to the recipe from the plan.',
+      'Browse previous and next weeks, and come back to this week with one click.',
+      'Add any planned meal to Google Calendar — the event opens pre-filled with the time and a link back to the recipe, and no calendar permissions are needed.',
+      'The last loaded week stays readable offline.',
     ],
   },
   {
@@ -174,12 +188,13 @@ const pl: FeatureSection[] = [
   },
   {
     id: 'ingredients',
-    title: 'Podpowiedzi składników',
-    summary: 'Aplikacja zapamiętuje składniki, których używasz.',
+    title: 'Podpowiedzi składników i tagów',
+    summary: 'Aplikacja zapamiętuje składniki i tagi, których używasz.',
     items: [
       'Każdy zapisany składnik jest zapamiętywany i podpowiadany przy kolejnym wpisywaniu.',
       'Wybierz składnik z listy albo wpisz nowy — nowe nazwy dodają się automatycznie.',
       'Różnice w pisowni i wielkości liter są scalane, więc każdy składnik pojawia się tylko raz.',
+      'Tagi działają tak samo: wybierz jeden z wcześniej użytych albo wpisz nowy.',
       'Usuń podpowiedź, której już nie potrzebujesz.',
     ],
   },
@@ -225,6 +240,19 @@ const pl: FeatureSection[] = [
       'Oznacz przepis jako zaplanowany z listy lub z samego przepisu.',
       'Zobacz wszystkie plany na jednej stronie, od najnowszych.',
       'Usuń przepis z planów, gdy już go ugotujesz.',
+    ],
+  },
+  {
+    id: 'planner',
+    title: 'Plan posiłków',
+    summary: 'Zdecyduj, co gotujesz którego dnia.',
+    items: [
+      'Cały tydzień na jednym ekranie, od poniedziałku do niedzieli, z wyróżnionym dzisiejszym dniem.',
+      'Dodaj dowolny przepis do wybranego dnia, opcjonalnie z godziną — z planu albo prosto z listy przepisów.',
+      'Usuń posiłek albo przejdź z planu wprost do przepisu.',
+      'Przeglądaj poprzednie i kolejne tygodnie, a jednym kliknięciem wróć do bieżącego.',
+      'Dodaj zaplanowany posiłek do Kalendarza Google — wydarzenie otwiera się z gotową godziną i linkiem do przepisu, bez przyznawania dostępu do kalendarza.',
+      'Ostatnio wczytany tydzień pozostaje dostępny offline.',
     ],
   },
   {

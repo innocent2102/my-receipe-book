@@ -138,7 +138,7 @@ export function RecipeView({ recipe }: { recipe: RecipeViewData }) {
           {recipe.ingredients.map((ing, index) => (
             <ListItem key={ing.id ?? `${ing.name}-${index}`} disableGutters sx={{ py: 0.5 }}>
               <ListItemText
-                primary={[ing.amount || '', ing.unit || '', ing.name]
+                primary={[ing.name, ing.amount || '', ing.unit || '']
                   .map((part) => String(part).trim())
                   .filter((part) => part !== '')
                   .join(' ')}

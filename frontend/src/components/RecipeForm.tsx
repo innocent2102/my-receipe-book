@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Typography,
   TextField,
@@ -22,6 +22,7 @@ import { Ingredient, generateId } from '@my-receipe-book/shared';
 import { useTranslation } from '../i18n/LanguageProvider';
 import type { TranslationKey } from '../i18n/translations';
 import { isYouTubeUrl, youTubeEmbedUrl } from '../lib/youtube';
+import { useNameCatalog } from '../lib/useNameCatalog';
 import {
   RECIPE_IMAGE_TYPES,
   imageFileFromTransfer,
@@ -59,8 +60,6 @@ interface RecipeFormProps {
   onCancel: () => void;
 }
 
-const normalizeIngredientName = (name: string) => name.trim().replace(/\s+/g, ' ');
-
 const IMAGE_ERROR_CODES = ['unsupported_type', 'too_large', 'empty'] as const;
 
 function imageErrorKey(code: string): TranslationKey {
@@ -84,7 +83,6 @@ export function RecipeForm({
   const [ingredients, setIngredients] = useState<Ingredient[]>(() =>
     (initialValues?.ingredients ?? []).map((ing) => ({ id: generateId(), ...ing }))
   );
-  const [ingredientOptions, setIngredientOptions] = useState<string[]>([]);
   const [instructions, setInstructions] = useState<InstructionItem[]>(() =>
     (initialValues?.instructions ?? []).map((text) => ({ id: generateId(), text }))
   );
@@ -96,83 +94,10 @@ export function RecipeForm({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const ingredientCatalog = useNameCatalog('/api/ingredients', 'ingredient');
+  const tagCatalog = useNameCatalog('/api/tags', 'tag');
+
   const videoEmbedUrl = youTubeEmbedUrl(videoUrl);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadIngredientOptions = async () => {
-      try {
-        const res = await fetch('/api/ingredients', { cache: 'no-store' });
-        const json = (await res.json().catch(() => ({}))) as {
-          success?: boolean;
-          data?: string[];
-        };
-        if (!cancelled && res.ok && json.success && Array.isArray(json.data)) {
-          setIngredientOptions(json.data);
-        }
-      } catch (err) {
-        console.error('Error loading ingredient suggestions:', err);
-      }
-    };
-
-    loadIngredientOptions();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  /** Persists a newly typed ingredient name so it shows up in future autocompletes. */
-  const rememberIngredientName = async (rawName: string) => {
-    const name = normalizeIngredientName(rawName);
-    if (!name) return;
-
-    const isKnown = ingredientOptions.some(
-      (option) => option.toLowerCase() === name.toLowerCase()
-    );
-    if (isKnown) return;
-
-    setIngredientOptions((prev) => [...prev, name].sort((a, b) => a.localeCompare(b)));
-
-    try {
-      const res = await fetch('/api/ingredients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        success?: boolean;
-        data?: string[];
-      };
-      if (res.ok && json.success && Array.isArray(json.data)) {
-        setIngredientOptions(json.data);
-      }
-    } catch (err) {
-      console.error('Error saving ingredient:', err);
-    }
-  };
-
-  /** Drops a suggestion from the user's catalog (the ✕ on a dropdown option). */
-  const forgetIngredientName = async (name: string) => {
-    setIngredientOptions((prev) => prev.filter((option) => option !== name));
-
-    try {
-      const res = await fetch(`/api/ingredients?name=${encodeURIComponent(name)}`, {
-        method: 'DELETE',
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        success?: boolean;
-        data?: string[];
-      };
-      if (res.ok && json.success && Array.isArray(json.data)) {
-        setIngredientOptions(json.data);
-      }
-    } catch (err) {
-      console.error('Error removing ingredient suggestion:', err);
-    }
-  };
-
   const addIngredient = () => {
     // Newest row first so the user can keep typing without scrolling.
     setIngredients([
@@ -219,10 +144,13 @@ export function RecipeForm({
   };
 
   const handleAddTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()]);
-      setTagInput('');
-    }
+    const tag = tagInput.trim().replace(/\s+/g, ' ');
+    // Case-insensitive so "Dinner" is not added next to an existing "dinner".
+    if (!tag || tags.some((existing) => existing.toLowerCase() === tag.toLowerCase())) return;
+
+    setTags([...tags, tag]);
+    setTagInput('');
+    void tagCatalog.remember(tag);
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
@@ -512,7 +440,7 @@ export function RecipeForm({
                   autoHighlight
                   selectOnFocus
                   handleHomeEndKeys
-                  options={ingredientOptions}
+                  options={ingredientCatalog.options}
                   inputValue={ingredient.name}
                   value={ingredient.name}
                   sx={{ flex: 2 }}
@@ -522,9 +450,9 @@ export function RecipeForm({
                   onChange={(_event, newValue) => {
                     const name = typeof newValue === 'string' ? newValue : '';
                     updateIngredient(ingredient.id, 'name', name);
-                    void rememberIngredientName(name);
+                    void ingredientCatalog.remember(name);
                   }}
-                  onBlur={() => void rememberIngredientName(ingredient.name)}
+                  onBlur={() => void ingredientCatalog.remember(ingredient.name)}
                   renderOption={(props, option) => {
                     const { key, ...optionProps } = props as React.HTMLAttributes<HTMLLIElement> & {
                       key: string;
@@ -546,7 +474,7 @@ export function RecipeForm({
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={(event) => {
                             event.stopPropagation();
-                            void forgetIngredientName(option);
+                            void ingredientCatalog.forget(option);
                           }}
                         >
                           <CloseIcon fontSize="small" />
@@ -668,19 +596,73 @@ export function RecipeForm({
             ))}
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField
+            <Autocomplete
+              freeSolo
+              autoHighlight
+              selectOnFocus
+              handleHomeEndKeys
               fullWidth
               size="small"
-              label={t('add.addTagLabel')}
+              // Tags already on this recipe are not worth suggesting again.
+              options={tagCatalog.options.filter(
+                (option) => !tags.some((tag) => tag.toLowerCase() === option.toLowerCase())
+              )}
+              inputValue={tagInput}
               value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddTag();
+              onInputChange={(_event, newInputValue) => setTagInput(newInputValue)}
+              onChange={(_event, newValue) => {
+                if (typeof newValue !== 'string') return;
+                const tag = newValue.trim();
+                if (!tag || tags.some((existing) => existing.toLowerCase() === tag.toLowerCase())) {
+                  return;
                 }
+                setTags([...tags, tag]);
+                setTagInput('');
               }}
-              placeholder={t('add.tagPlaceholder')}
+              renderOption={(props, option) => {
+                const { key, ...optionProps } = props as React.HTMLAttributes<HTMLLIElement> & {
+                  key: string;
+                };
+                return (
+                  <Box
+                    component="li"
+                    key={key}
+                    {...optionProps}
+                    sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                  >
+                    <Box component="span" sx={{ flexGrow: 1 }}>
+                      {option}
+                    </Box>
+                    <IconButton
+                      size="small"
+                      edge="end"
+                      aria-label={t('add.forgetTagAria', { name: option })}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void tagCatalog.forget(option);
+                      }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                );
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={t('add.addTagLabel')}
+                  placeholder={t('add.tagPlaceholder')}
+                  onKeyDown={(e) => {
+                    // Only add on Enter when no suggestion is highlighted; otherwise
+                    // Autocomplete's own selection handles it.
+                    if (e.key === 'Enter' && !(e.target as HTMLInputElement).getAttribute('aria-activedescendant')) {
+                      e.preventDefault();
+                      handleAddTag();
+                    }
+                  }}
+                />
+              )}
             />
             <Button
               variant="outlined"

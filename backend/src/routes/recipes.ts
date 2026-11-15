@@ -3,6 +3,7 @@ import type { Database } from 'better-sqlite3';
 import { getDatabase, isDbAvailable } from '../database.js';
 import { requireRecipeUser } from '../recipeAuth.js';
 import { rememberIngredientNames } from '../ingredientCatalog.js';
+import { rememberTags } from '../tagCatalog.js';
 import { importRecipeFromUrl, isImportError } from '../recipeImport/index.js';
 import { deleteUnusedImage, imageIdFromUrl } from './images.js';
 
@@ -74,6 +75,8 @@ type NormalizedRecipe = {
   cookTime: number | null;
   servings: number | null;
   tags: string | null;
+  /** The same tags before JSON encoding, used to feed the autocomplete catalog. */
+  tagList: string[];
   videoUrl: string | null;
   sourceUrl: string | null;
   imageUrl: string | null;
@@ -183,6 +186,7 @@ function normalizeRecipeInput(raw: RecipeInput): NormalizedRecipe | null {
     cookTime: toOptionalNumber(raw.cookTime),
     servings: toOptionalNumber(raw.servings),
     tags: tags.length > 0 ? JSON.stringify(tags) : null,
+    tagList: tags,
     videoUrl: normalizeVideoUrl(raw.videoUrl),
     sourceUrl: normalizeSourceUrl(raw.sourceUrl),
     imageUrl: normalizeImageUrl(raw.imageUrl),
@@ -254,6 +258,7 @@ function insertRecipe(
   });
 
   rememberIngredientNames(db, userId, recipe.ingredients.map((ing) => ing.name));
+  rememberTags(db, userId, recipe.tagList);
 
   return recipeId;
 }
@@ -319,6 +324,7 @@ function updateRecipe(
   });
 
   rememberIngredientNames(db, userId, recipe.ingredients.map((ing) => ing.name));
+  rememberTags(db, userId, recipe.tagList);
 }
 
 /** Builds the API shape for a single recipe, including its ingredients and steps. */

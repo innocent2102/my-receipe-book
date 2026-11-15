@@ -52,6 +52,10 @@ implementation so the list is easy to keep up to date.
   list items.
 - **Remove a suggestion** you no longer want from the autocomplete list.
 - **Search endpoint** (`GET /api/ingredients?q=`) for filtered lookups.
+- **Per-user tag catalog** with the same behaviour for recipe tags
+  (`backend/src/tagCatalog.ts`, table `tag_catalog`): autocomplete while typing a tag, new tags
+  remembered when you save a recipe, case-insensitive de-duplication, and a ✕ to forget a
+  suggestion. Tags already used by your recipes are back-filled into the catalog on startup.
 
 ## Video
 
@@ -91,6 +95,20 @@ implementation so the list is easy to keep up to date.
   (`backend/src/routes/planned.ts`, `frontend/src/app/planned/page.tsx`).
 - **Planned page** showing everything you intend to cook soon, newest first, in the same layout
   as the recipe list, with its own empty state.
+
+## Meal planner
+
+- **Weekly plan** at `/planner` — a Monday-to-Sunday grid where every day lists the recipes you
+  intend to cook (`backend/src/routes/mealPlans.ts`, `frontend/src/app/planner/page.tsx`).
+- **Add a recipe to a day** from the planner itself (pick any recipe) or straight from a recipe
+  row in the list, with an optional time (`frontend/src/components/PlanRecipeDialog.tsx`).
+- **Move or remove** an entry; the same recipe can appear on as many days as you like.
+- **Week navigation** — previous / next week and a "this week" shortcut, with today highlighted.
+- **Offline copy** — the last loaded week stays readable without a connection.
+- **Add to Google Calendar** — every planned meal has a calendar button that opens Google Calendar
+  with a pre-filled event (title, date, 19:00 start by default, one hour long, a link back to the
+  recipe in the description). You save the event yourself, so the app never needs calendar
+  permissions (`frontend/src/lib/googleCalendarLink.ts`).
 
 ## Sharing
 
@@ -169,6 +187,9 @@ All backend routes require the proxy headers and operate on the current user onl
 | GET | `/api/ingredients` | Known ingredient names, optional `q` filter |
 | POST | `/api/ingredients` | Remember a new ingredient name |
 | DELETE | `/api/ingredients` | Forget an ingredient name |
+| GET | `/api/tags` | Known tag names, optional `q` filter |
+| POST | `/api/tags` | Remember a new tag |
+| DELETE | `/api/tags` | Forget a tag |
 | GET | `/api/grocery` | The user's shopping list |
 | POST | `/api/grocery/items` | Add items (merging duplicates) |
 | PATCH | `/api/grocery/items/:id` | Check / uncheck an item |
@@ -177,6 +198,10 @@ All backend routes require the proxy headers and operate on the current user onl
 | GET | `/api/planned` | List planned recipes |
 | POST | `/api/planned` | Mark a recipe as planned |
 | DELETE | `/api/planned/:recipeId` | Remove a recipe from planned |
+| GET | `/api/meal-plans` | Meal plan entries in a `from`/`to` date range |
+| POST | `/api/meal-plans` | Put a recipe on a day |
+| PUT | `/api/meal-plans/:id` | Move an entry to another day or time |
+| DELETE | `/api/meal-plans/:id` | Remove an entry from the plan |
 | POST | `/api/share` | Publish a recipe and return its link token |
 | GET | `/api/share/recipe/:recipeId` | Current link token, or `null` |
 | DELETE | `/api/share/recipe/:recipeId` | Stop sharing a recipe |
@@ -190,7 +215,7 @@ The matching Next.js proxy routes live in `frontend/src/app/api/`.
 ## Data & resilience
 
 - **SQLite storage** with foreign keys enabled and tables created/migrated on startup:
-  `recipes`, `ingredients`, `instructions`, `ingredient_catalog`, `grocery_lists`,
+  `recipes`, `ingredients`, `instructions`, `ingredient_catalog`, `tag_catalog`, `grocery_lists`,
   `grocery_items`, `planned_recipes`, `recipe_shares`, `recipe_images`, `meal_plans`
   (`backend/src/database.ts`).
 - **Graceful degradation** — if `better-sqlite3` cannot be loaded, the server still starts and
