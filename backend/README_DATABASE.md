@@ -3,6 +3,16 @@
 ## Database Location
 The SQLite database is stored at: `backend/data/recipes.db`
 
+Set the `DATABASE_PATH` environment variable to store it elsewhere (the directory is created if missing).
+
+### Persistence on Railway
+Railway containers have an ephemeral filesystem, so the default path is wiped on every deploy. To keep your data:
+1. In the backend service, add a **Volume** mounted at `/data`.
+2. Set the variable `DATABASE_PATH=/data/recipes.db`.
+3. Redeploy and check the logs for `Using SQLite database at /data/recipes.db`.
+
+A volume is not a backup - export your recipes from the app regularly.
+
 ## Methods to Check the Database
 
 ### Method 1: Using the Check Script (Recommended)

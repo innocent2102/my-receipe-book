@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { seedTagsFromRecipes } from './tagCatalog.js';
@@ -18,8 +19,13 @@ async function tryLoadDatabase() {
   
   try {
     const Database = (await import('better-sqlite3')).default;
-    const dbPath = path.join(__dirname, '../data/recipes.db');
+    // Point DATABASE_PATH at a persistent volume in production (e.g. /data/recipes.db).
+    const dbPath = process.env.DATABASE_PATH
+      ? path.resolve(process.env.DATABASE_PATH)
+      : path.join(__dirname, '../data/recipes.db');
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     db = new Database(dbPath);
+    console.log(`📦 Using SQLite database at ${dbPath}`);
     isDatabaseAvailable = true;
     return true;
   } catch (error: any) {
