@@ -6,7 +6,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Script is in backend/scripts/, so go up one level to backend/, then into data/
-const dbPath = path.join(__dirname, '../data/recipes.db');
+const dbPath = process.env.DATABASE_PATH
+  ? path.resolve(process.env.DATABASE_PATH)
+  : path.join(__dirname, '../data/recipes.db');
 
 // Try to import better-sqlite3
 let Database: any = null;
